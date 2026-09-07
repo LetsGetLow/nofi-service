@@ -918,16 +918,18 @@ expired key or a stale token each read as themselves.
 
 ## Continuous integration
 
-`.gitlab-ci.yml` runs on every push — any branch, merge requests and tags. A
-branch with an open merge request is checked once rather than twice, by the
-merge request pipeline, which is also the one worth requiring before a merge:
-it runs against the merge result, so it sees a conflict with the target branch
-that a branch pipeline cannot.
+`.github/workflows/ci.yml` runs on every push — any branch and tags — and on
+every pull request. A branch with an open pull request is checked once rather
+than twice: the `guard` job drops the push run, because a push to a branch with
+an open PR raises both events for the same commit. The pull request run is the
+one worth requiring in branch protection — it checks out `refs/pull/N/merge`,
+the merge result, so it sees a conflict with the base branch that a push run
+cannot.
 
-The first stage builds this repository's own `Dockerfile.frankenphp` — the `ci`
-target — and pushes it to the container registry; every later job runs inside
-that image, so the pipeline and your `./docker` use the same PHP, the same
-extensions and the same dependency tree. Nothing describes the environment
+The first job builds this repository's own `Dockerfile.frankenphp` — the `ci`
+target — and pushes it to `ghcr.io`; every later job runs inside that image
+through `container:`, so the pipeline and your `./docker` use the same PHP, the
+same extensions and the same dependency tree. Nothing describes the environment
 twice.
 
 | job | what it protects |
@@ -960,20 +962,19 @@ docker run --rm -v "$PWD:/w" -w /w nofi-ci \
   sh -lc 'rm -rf vendor && cp -a /app/vendor vendor && mkdir -p var .phpunit.cache && vendor/bin/phpunit'
 ```
 
-Every pipeline pushes a `ci:<sha>` image of its own, so a registry cleanup
-policy keeps that from growing without end. It is configured under Settings →
-Packages and registries and runs **every day**: it keeps the **10 most recent**
-tags per image whatever their age, and removes the rest once they are older
-than **three days**. `latest` needs no rule of its own — GitLab never deletes
-it, which is what the build job's `--cache-from` relies on.
+Layer caching uses Buildx's GitHub Actions backend rather than a `:latest` tag
+in the registry. That is scoped per branch with a fallback to the default
+branch, so a pull request reads the shared cache without being able to poison
+it, and no cache image has to exist at all.
 
-The consequence worth knowing: **retrying a single job from an older pipeline
-fails**, with `manifest unknown` rather than anything resembling a test result,
-because the `ci:<sha>` image that job wants has been pruned. The 10-most-recent
-rule covers the last handful of commits regardless of age; beyond that, re-run
-the whole pipeline so the image is rebuilt first.
+Every run still pushes a `ci:<sha>` package of its own, so the `prune-ci-images`
+job keeps the **10 most recent** and deletes the rest after a green run on
+`main`. The consequence worth knowing: **re-running a single job from an older
+run fails**, with `manifest unknown` rather than anything resembling a test
+result, because the `ci:<sha>` image that job wants has been pruned. Re-run the
+whole workflow instead, so the image is rebuilt first.
 
-The `ci` target exists for one reason: GitLab overrides a job image's
+The `ci` target exists for one reason: a `container:` job overrides the image's
 `ENTRYPOINT`, so `dev-entrypoint.sh` never runs and cannot seed `/app/vendor`
 the way it does under Compose. The target puts the vendor there at build time
 instead. Jobs copy it into the checkout rather than symlinking, because

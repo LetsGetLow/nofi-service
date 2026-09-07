@@ -148,9 +148,9 @@ RUN cp -a /opt/vendor vendor \
     && php bin/console assets:install public --no-interaction
 
 
-# What CI runs in, and it exists for one reason: GitLab overrides a job image's
-# ENTRYPOINT, so dev-entrypoint.sh never runs and nothing seeds /app/vendor the
-# way it does for a container Compose started. A job on the dev image would die
+# What CI runs in, and it exists for one reason: a GitHub Actions container job
+# overrides the image's ENTRYPOINT, so dev-entrypoint.sh never runs and nothing
+# seeds /app/vendor the way it does for a container Compose started. A job on the dev image would die
 # on the "Symfony Runtime is missing" error the README's Troubleshooting section
 # describes, before a single test ran. Bringing the vendor back at build time
 # instead is the same move dev-assets makes, for the same reason: /opt/vendor

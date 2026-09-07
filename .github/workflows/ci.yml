@@ -1,0 +1,267 @@
+# The pipeline runs everything inside an image built from this repository's own
+# Dockerfile, rather than a public PHP image with the extensions listed a second
+# time. The application needs sodium for the argon2id hashing in security.yaml,
+# pdo_sqlite for the test database and pdo_pgsql for the migrations job, and
+# stating that twice is how CI and a developer's ./docker drift apart.
+#
+# See README.md, "Continuous integration".
+
+name: CI
+
+# Every push is checked, wherever it lands, plus every pull request and tag.
+# The "guard" job below is what keeps that from costing twice.
+on:
+  push:
+    branches: ['**']
+    tags: ['**']
+  pull_request:
+
+permissions:
+  contents: read
+  # Pushing and pulling the CI image on ghcr.io.
+  packages: write
+  # The guard job asks whether the pushed branch already has an open PR.
+  pull-requests: read
+
+# A second push to the same branch or PR makes the run in flight pointless.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # GitLab expressed this as a workflow rule; GitHub has no equivalent, because
+  # a push to a branch with an open pull request raises both a push event and a
+  # pull_request event for the same commit and will happily run the lot twice.
+  #
+  # Note that the two do not see the same thing. The pull_request run checks out
+  # refs/pull/N/merge — the merge result — so it can fail on a conflict with the
+  # base branch that a push run is blind to, and it is the one worth requiring
+  # in branch protection. That is why the push run is the one dropped.
+  guard:
+    name: Decide whether this commit needs a run
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+    steps:
+      - id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "${{ github.event_name }}" != push ]; then
+            echo "Not a push event; runs."
+            echo run=true >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # A tag never matches a PR head, so tags fall through to true.
+          open=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$REF_NAME" \
+                   --state open --json number --jq 'length')
+          if [ "${open:-0}" -gt 0 ]; then
+            echo "$REF_NAME has $open open pull request(s); the pull_request run covers this commit."
+            echo run=false >> "$GITHUB_OUTPUT"
+          else
+            echo run=true >> "$GITHUB_OUTPUT"
+          fi
+
+  build-ci-image:
+    name: Build the CI image
+    needs: guard
+    if: needs.guard.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.name.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # ghcr.io rejects an uppercase path, and this repository's owner has one.
+      - id: name
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}/ci:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # GitLab cached layers by pulling its own :latest and passing --cache-from,
+      # which meant only the default branch could refill the cache. Buildx's GHA
+      # backend is scoped per branch with a fallback to the default branch, so a
+      # pull request reads the shared cache without being able to poison it, and
+      # no cache tag has to exist in the registry at all.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.frankenphp
+          target: ci
+          push: true
+          tags: ${{ steps.name.outputs.image }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  phpunit:
+    name: phpunit
+    needs: [guard, build-ci-image]
+    if: needs.guard.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.build-ci-image.outputs.image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      # Jobs run against the checkout Actions made, which is the commit under
+      # test, with the vendor the image built. A copy and not a symlink:
+      # __DIR__ inside autoload.php resolves symlinks, so a symlinked vendor
+      # would point the Symfony runtime back at /app and quietly test the
+      # image's copy of the source instead of this one.
+      #
+      # rm first: cp -a into an existing directory would nest it as
+      # vendor/vendor. Both var/ and .phpunit.cache are gitignored, so a fresh
+      # checkout has neither, and PHPUnit writes to both — the SQLite database
+      # and the throwaway JWT keypair live under var/.
+      - name: Take the vendor from the image
+        run: |
+          rm -rf vendor && cp -a /app/vendor vendor
+          mkdir -p var .phpunit.cache
+      # tests/Live needs credentials, a network and a device, and is excluded
+      # twice over — the "live" group in phpunit.dist.xml and a skip when
+      # NOFI_LIVE_PUSH_TARGET is unset — so it can never break this job.
+      - run: vendor/bin/phpunit
+
+  psalm:
+    name: psalm
+    needs: [guard, build-ci-image]
+    if: needs.guard.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.build-ci-image.outputs.image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Take the vendor from the image
+        run: |
+          rm -rf vendor && cp -a /app/vendor vendor
+          mkdir -p var .phpunit.cache
+      # --no-cache because the container is thrown away anyway, and a stale
+      # cache is the one way this job could disagree with a developer's run.
+      - run: vendor/bin/psalm --no-cache
+
+  audit:
+    name: audit
+    needs: [guard, build-ci-image]
+    if: needs.guard.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.build-ci-image.outputs.image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      COMPOSER_CACHE_DIR: ${{ github.workspace }}/.composer-cache
+    steps:
+      - uses: actions/checkout@v4
+      - name: Take the vendor from the image
+        run: |
+          rm -rf vendor && cp -a /app/vendor vendor
+          mkdir -p var .phpunit.cache
+      - uses: actions/cache@v4
+        with:
+          path: .composer-cache
+          key: composer-${{ hashFiles('composer.lock') }}
+      # The only job that reaches the network: advisories are published
+      # continuously, so this can turn red on a commit that changed nothing.
+      # That is deliberate — it is how a new advisory gets noticed at all.
+      - run: composer audit
+
+  lint:
+    name: lint
+    needs: [guard, build-ci-image]
+    if: needs.guard.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.build-ci-image.outputs.image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Take the vendor from the image
+        run: |
+          rm -rf vendor && cp -a /app/vendor vendor
+          mkdir -p var .phpunit.cache
+      - run: composer validate --no-check-publish
+      - run: bin/console lint:yaml config
+      - run: bin/console lint:twig templates
+      # Resolves every service and argument, which the test suite does not: a
+      # container that only breaks for a service no test instantiates fails here
+      # instead of in production.
+      - run: bin/console lint:container
+
+  migrations:
+    name: migrations
+    needs: [guard, build-ci-image]
+    if: needs.guard.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.build-ci-image.outputs.image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: nofi
+          POSTGRES_USER: nofi
+          POSTGRES_PASSWORD: nofi
+        # GitLab started the service and let the job race it. Actions can wait,
+        # so the first migration does not have to be the retry.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: "postgresql://nofi:nofi@postgres:5432/nofi?serverVersion=16&charset=utf8"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Take the vendor from the image
+        run: |
+          rm -rf vendor && cp -a /app/vendor vendor
+          mkdir -p var .phpunit.cache
+      # The gap this job exists for. The suite builds its schema from the entity
+      # metadata (tests/Support/InteractsWithDatabase.php) and runs on SQLite, so
+      # a migration that is broken, misordered or drifted from the entities passes
+      # every test. Here they are the only thing that builds the schema, on the
+      # PostgreSQL the application actually runs on.
+      - run: bin/console doctrine:migrations:migrate --no-interaction
+      # Both halves: the mapping, and the schema the migrations just produced
+      # against that mapping — which is what catches an entity changed without a
+      # migration. messenger_messages has no entity mapping it and needs no
+      # schema_filter for this to pass, which was checked against a database
+      # built by nothing but these migrations rather than assumed.
+      - run: bin/console doctrine:schema:validate
+
+  # Every run pushes a ci:<sha> package of its own. GitLab had a registry
+  # cleanup policy in its settings; on GitHub the equivalent is this job.
+  # Keeping the 10 most recent covers retrying a job on the last handful of
+  # commits — beyond that the image is gone and the whole run has to be
+  # repeated, which rebuilds it.
+  prune-ci-images:
+    name: Prune old CI images
+    needs: [phpunit, psalm, audit, lint, migrations]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/delete-package-versions@v5
+        with:
+          package-name: nofi-service/ci
+          package-type: container
+          min-versions-to-keep: 10
