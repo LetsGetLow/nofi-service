@@ -6,17 +6,22 @@ namespace Nofi\Service\Email;
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use InvalidArgumentException;
 use Nofi\Entity\Notification;
 use Nofi\Notification\EmailNotificationPayload;
 use Nofi\Notification\MailTemplateLocator;
+use Nofi\Notification\NotificationChannel;
+use Nofi\Notification\NotificationDelivery;
+use Nofi\Notification\NotificationPayload;
 use Nofi\Notification\NotificationStatus;
+use Override;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Throwable;
 
-readonly class EmailNotificationDelivery
+readonly class EmailNotificationDelivery implements NotificationDelivery
 {
     public function __construct(
         private EntityManagerInterface $entityManager,
@@ -25,8 +30,24 @@ readonly class EmailNotificationDelivery
         private MailTemplateLocator $templates,
     ) {}
 
-    public function deliver(Notification $notification, EmailNotificationPayload $payload): void
+    #[Override]
+    public function channel(): NotificationChannel
     {
+        return NotificationChannel::EMAIL;
+    }
+
+    #[Override]
+    public function deliver(Notification $notification, NotificationPayload $payload): void
+    {
+        if (!$payload instanceof EmailNotificationPayload) {
+            throw new InvalidArgumentException(sprintf(
+                "%s delivers an %s, not a %s.",
+                self::class,
+                EmailNotificationPayload::class,
+                $payload::class,
+            ));
+        }
+
         $notification->markProcessing();
         $attempted = 0;
         $failed = 0;

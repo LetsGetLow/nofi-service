@@ -6,13 +6,18 @@ namespace Nofi\Service\Push;
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use InvalidArgumentException;
 use Nofi\Entity\Notification;
+use Nofi\Notification\NotificationChannel;
+use Nofi\Notification\NotificationDelivery;
+use Nofi\Notification\NotificationPayload;
 use Nofi\Notification\NotificationStatus;
 use Nofi\Notification\PushNotificationPayload;
+use Override;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 
-readonly class PushNotificationDelivery
+readonly class PushNotificationDelivery implements NotificationDelivery
 {
     public function __construct(
         private PushService $pushService,
@@ -20,8 +25,24 @@ readonly class PushNotificationDelivery
         private LoggerInterface $logger,
     ) {}
 
-    public function deliver(Notification $notification, PushNotificationPayload $payload): void
+    #[Override]
+    public function channel(): NotificationChannel
     {
+        return NotificationChannel::PUSH;
+    }
+
+    #[Override]
+    public function deliver(Notification $notification, NotificationPayload $payload): void
+    {
+        if (!$payload instanceof PushNotificationPayload) {
+            throw new InvalidArgumentException(sprintf(
+                "%s delivers a %s, not a %s.",
+                self::class,
+                PushNotificationPayload::class,
+                $payload::class,
+            ));
+        }
+
         $notification->markProcessing();
 
         $deviceTokens = [];

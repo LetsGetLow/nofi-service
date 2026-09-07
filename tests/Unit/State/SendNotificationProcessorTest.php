@@ -9,7 +9,6 @@ use Doctrine\ORM\EntityManagerInterface;
 use Nofi\Application\Notification\SendNotificationService;
 use Nofi\Dto\SendNotificationDto;
 use Nofi\Entity\User;
-use Nofi\Notification\NotificationMessageFactory;
 use Nofi\Notification\NotificationRecorder;
 use Nofi\Notification\State\SendNotificationProcessor;
 use InvalidArgumentException;
@@ -59,7 +58,6 @@ final class SendNotificationProcessorTest extends TestCase
         return new SendNotificationService(
             $this->createStub(MessageBusInterface::class),
             new NotificationRecorder($this->createStub(EntityManagerInterface::class)),
-            new NotificationMessageFactory(),
         );
     }
 

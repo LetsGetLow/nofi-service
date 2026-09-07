@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace Nofi\Application\Notification;
 
+use LogicException;
 use Nofi\Dto\SendNotificationDto;
 use Nofi\Entity\Notification;
 use Nofi\Entity\User;
-use Nofi\Notification\EmailNotificationPayload;
-use Nofi\Notification\NotificationChannel;
-use Nofi\Notification\PushNotificationPayload;
-use Nofi\Notification\NotificationMessageFactory;
 use Nofi\Notification\NotificationRecorder;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
@@ -23,7 +20,6 @@ final readonly class SendNotificationService
     public function __construct(
         private MessageBusInterface $messageBus,
         private NotificationRecorder $recorder,
-        private NotificationMessageFactory $messageFactory,
     ) {}
 
     /**
@@ -33,13 +29,15 @@ final readonly class SendNotificationService
     public function send(User $user, SendNotificationDto $dto): Notification
     {
         $id = Uuid::v7();
-        
-        $payload = match($dto->channel) {
-            NotificationChannel::EMAIL => EmailNotificationPayload::fromDto($dto),
-            NotificationChannel::PUSH => PushNotificationPayload::fromDto($dto),
-        };
-        
-        $message = $this->messageFactory->create($id, $dto, $user->getId());
+
+        // Validation guarantees a channel by the time a request reaches here,
+        // so this only fires for a caller that built the DTO itself.
+        $channel = $dto->channel ?? throw new LogicException(
+            "A notification cannot be sent without a channel.",
+        );
+
+        $payload = $channel->payloadFrom($dto);
+        $message = $channel->newMessage($id->toRfc4122(), $dto, $user->getId());
         $notification = $this->recorder->record($message, $payload);
 
         $stamps = [];

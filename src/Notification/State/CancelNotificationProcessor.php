@@ -22,7 +22,7 @@ use function sprintf;
  * The queued message is left where it is: a delayed one cannot be withdrawn
  * from the transport reliably. The cancellation takes effect when a worker
  * picks the message up and finds the notification no longer waiting, which is
- * what SendEmailNotificationHandler and SendPushNotificationHandler check.
+ * what SendNotificationHandler checks.
  *
  * @implements ProcessorInterface<NotificationResource, NotificationResource>
  */

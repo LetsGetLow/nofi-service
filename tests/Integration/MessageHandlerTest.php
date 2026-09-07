@@ -11,8 +11,7 @@ use Nofi\Message\DeleteNotification;
 use Nofi\Message\SendEmailNotification;
 use Nofi\Message\SendPushNotification;
 use Nofi\MessageHandler\DeleteNotificationHandler;
-use Nofi\MessageHandler\SendEmailNotificationHandler;
-use Nofi\MessageHandler\SendPushNotificationHandler;
+use Nofi\MessageHandler\SendNotificationHandler;
 use Nofi\Notification\NotificationChannel;
 use Nofi\Notification\NotificationStatus;
 use Nofi\Service\Push\PushService;
@@ -34,7 +33,7 @@ final class MessageHandlerTest extends IntegrationTestCase
     #[Test]
     public function anEmailForADeletedNotificationIsSkippedWithoutRetrying(): void
     {
-        $handler = self::service(SendEmailNotificationHandler::class);
+        $handler = self::service(SendNotificationHandler::class);
 
         // No exception: retrying cannot bring the row back, so raising here
         // would only burn the retry budget and land in the failed transport.
@@ -50,7 +49,7 @@ final class MessageHandlerTest extends IntegrationTestCase
         $pushService->expects(self::never())->method('send');
         self::getContainer()->set(PushService::class, $pushService);
 
-        $handler = self::service(SendPushNotificationHandler::class);
+        $handler = self::service(SendNotificationHandler::class);
         $handler(new SendPushNotification('gone', $this->pushDto(), 'user-1'));
     }
 
@@ -66,7 +65,7 @@ final class MessageHandlerTest extends IntegrationTestCase
         self::getContainer()->set(PushService::class, $pushService);
 
         try {
-            self::service(SendPushNotificationHandler::class)(
+            self::service(SendNotificationHandler::class)(
                 new SendPushNotification($notification->getId(), $this->pushDto(), 'user-1'),
             );
             self::fail('Expected the rejected token to raise.');

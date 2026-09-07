@@ -14,40 +14,12 @@ readonly class NotificationRecorder
 {
     public function __construct(private EntityManagerInterface $entityManager) {}
 
-    public function record(
-        NotificationMessage $message,
-        EmailNotificationPayload|PushNotificationPayload $payload,
-    ): Notification {
+    public function record(NotificationMessage $message, NotificationPayload $payload): Notification
+    {
         $dto = $message->getNotificationDto();
         $user = $this->entityManager->getReference(User::class, $message->getUserId());
 
-        $payloadData = match($payload::class) {
-            EmailNotificationPayload::class => [
-                "sender" => $payload->sender,
-                "subject" => $payload->subject,
-                "message" => $payload->message,
-                "template" => $payload->template,
-                // Only metadata: the content already travels in the queued
-                // message, and persisting it again would duplicate every
-                // attachment in the notification table.
-                "attachments" => array_map(
-                    static fn (EmailAttachment $attachment): array => [
-                        "filename" => $attachment->filename,
-                        "contentType" => $attachment->contentType,
-                        "contentId" => $attachment->contentId,
-                        "size" => $attachment->size(),
-                    ],
-                    $payload->attachments,
-                ),
-                "data" => $payload->data,
-            ],
-            PushNotificationPayload::class => [
-                "title" => $payload->title,
-                "message" => $payload->message,
-                "icon" => $payload->icon,
-                "data" => $payload->data,
-            ],
-        };
+        $payloadData = $payload->toPayloadData();
 
         $notification = new Notification($message->getNotificationId())
             ->assignChannel($dto->channel ?? NotificationChannel::EMAIL)

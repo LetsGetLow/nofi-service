@@ -168,11 +168,13 @@ final class SendNotificationDto
 
     public function validateChannelSpecificFields(ExecutionContextInterface $context): void
     {
-        match($this->channel) {
-            NotificationChannel::EMAIL => $this->validateEmailFields($context),
-            NotificationChannel::PUSH => $this->validatePushFields($context),
-            default => null,
-        };
+        // Null is the one case handled here: #[Assert\NotNull] on $channel
+        // already reports it, and asking the enum would mean asking nothing.
+        // Every real channel dispatches through NotificationChannel, so this
+        // method does not have to be edited when one is added. It used to
+        // carry a "default => null" arm, which meant a new channel was
+        // accepted with no field validation whatsoever.
+        $this->channel?->validate($this, $context);
     }
 
     /**
@@ -226,7 +228,7 @@ final class SendNotificationDto
         }
     }
 
-    private function validateEmailFields(ExecutionContextInterface $context): void
+    public function validateEmailFields(ExecutionContextInterface $context): void
     {
         if (empty($this->sender)) {
             $context->buildViolation("Sender is required for email notifications")
@@ -270,7 +272,7 @@ final class SendNotificationDto
         }
     }
 
-    private function validatePushFields(ExecutionContextInterface $context): void
+    public function validatePushFields(ExecutionContextInterface $context): void
     {
         if ($this->attachments !== []) {
             $context->buildViolation("Push notifications cannot carry attachments")

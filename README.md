@@ -1075,6 +1075,33 @@ Compose is older than v2.24. Upgrade, or create an empty `.env.local`.
 
 ---
 
+## Adding a channel
+
+Everything that differs between channels is reached through
+`NotificationChannel`. A new one is five pieces, and only the first is an edit
+to an existing file:
+
+1. A `case` in `src/Notification/NotificationChannel.php`, plus an arm in each
+   of its three `match` expressions — which payload to build, which message to
+   queue, and which validation to run.
+2. A `NotificationPayload` implementation, whose `toPayloadData()` decides what
+   is kept on the notification record.
+3. A `NotificationMessage` implementation. Messenger routes on the class, and
+   the shared interface is what gets it to the one handler.
+4. A `NotificationDelivery` implementation. It is tagged automatically by the
+   attribute on the interface and found by channel through
+   `NotificationDeliveries`, so nothing has to be registered by hand.
+5. A `validate…Fields()` method on `SendNotificationDto` for the rules that
+   only apply there, including which of the other channels' fields to refuse.
+
+Leaving step 1 half-done is caught by Psalm rather than at runtime: the three
+`match` expressions are exhaustive, so an unwired case is three
+`UnhandledMatchCondition` errors in that one file. It used to be four `match`
+statements in four layers, one of which carried a `default => null` arm and
+would have accepted the request with no field validation at all.
+
+---
+
 ## Layout
 
 ```
@@ -1087,7 +1114,7 @@ src/
   Entity/             Doctrine entities
   Message/            Messenger messages
   MessageHandler/     Messenger handlers
-  Notification/       Domain: status machine, payloads, state providers
+  Notification/       Domain: channels, status machine, payloads, state providers
   Repository/         Doctrine repositories
   Service/            Email and push delivery
 config/

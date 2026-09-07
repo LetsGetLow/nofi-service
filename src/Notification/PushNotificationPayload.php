@@ -6,8 +6,9 @@ namespace Nofi\Notification;
 
 use Nofi\Dto\SendNotificationDto;
 use InvalidArgumentException;
+use Override;
 
-final readonly class PushNotificationPayload
+final readonly class PushNotificationPayload implements NotificationPayload
 {
     public function __construct(
         public string $title,
@@ -28,5 +29,16 @@ final readonly class PushNotificationPayload
             $dto->icon,
             $dto->data,
         );
+    }
+
+    #[Override]
+    public function toPayloadData(): array
+    {
+        return [
+            "title" => $this->title,
+            "message" => $this->message,
+            "icon" => $this->icon,
+            "data" => $this->data,
+        ];
     }
 }
