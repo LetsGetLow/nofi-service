@@ -1,0 +1,54 @@
+{
+	# Caddy builds its HTTP to HTTPS redirect from these, so they have to be
+	# the ports the outside world uses. Published under a different number
+	# without telling Caddy, the redirect points at 443 and lands nowhere.
+	# The container is mapped port for port, so host and container agree.
+	http_port {$HTTP_PORT:80}
+	https_port {$HTTPS_PORT:443}
+
+	frankenphp {
+		worker ./public/index.php
+	}
+}
+
+# Caddy's own HTTP to HTTPS redirect sends the caller to the standard 443
+# whatever https_port says, which is wrong for every deployment that is not on
+# the standard port. Redirect explicitly instead, so the port travels with it.
+http://{$SERVER_NAME:localhost}:{$HTTP_PORT:80} {
+	redir https://{host}:{$HTTPS_PORT:443}{uri} 308
+}
+
+https://{$SERVER_NAME:localhost}:{$HTTPS_PORT:443} {
+	log {
+		format json
+		level {$CADDY_LOG_LEVEL:INFO}
+	}
+
+	encode zstd br gzip
+
+	root public/
+
+	header /* {
+		X-Frame-Options "SAMEORIGIN"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	request_header X-Sendfile-Type x-accel-redirect
+	request_header X-Accel-Mapping ../private-files=/private-files
+	intercept {
+		@sendfile header X-Accel-Redirect *
+		handle_response @sendfile {
+			root private-files/
+			rewrite * {resp.header.X-Accel-Redirect}
+			method * GET
+			header -X-Accel-Redirect
+			file_server
+		}
+	}
+
+	php_server {
+		try_files {path} index.php
+	}
+}

@@ -1,0 +1,23 @@
+vendor/
+var/
+# Built by assets:install during the build, never taken from the context: it is
+# gitignored, so whether it is here at all depends on what the developer doing
+# the build happens to have lying around.
+public/bundles/
+.git/
+.github/
+*.md
+
+###> secrets — must never be baked into image layers ###
+.env.local
+.env.*.local
+config/jwt/*
+!config/jwt/.gitkeep
+config/firebase/*
+!config/firebase/.gitkeep
+###< secrets ###
+
+###> not needed at runtime ###
+.idea/
+tests/
+.phpunit.cache/

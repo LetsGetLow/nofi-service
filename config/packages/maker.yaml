@@ -1,0 +1,6 @@
+# config/packages/maker.yaml
+when@dev:
+    maker:
+        root_namespace: 'Nofi'
+        generate_final_classes: true
+        generate_final_entities: false

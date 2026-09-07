@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+#
+# Run a command inside the php container. Everything after the script name is
+# passed through unchanged:
+#
+#   ./docker bin/console cache:clear
+#   ./docker bin/console doctrine:migrations:migrate
+#   ./docker composer require some/package
+#   ./docker vendor/bin/phpunit --filter FirebasePushService
+#   ./docker                                  # interactive shell
+#   NOFI_SERVICE=messenger-worker ./docker bin/console messenger:stats
+#
+# Commands run as your own uid, so anything written into the mounted source
+# tree stays yours instead of turning up owned by root. Override with
+# NOFI_USER for the rare command that needs root inside the container:
+#
+#   NOFI_USER=root ./docker install-php-extensions redis
+#
+set -euo pipefail
+
+cd "$(dirname "$0")"
+
+SERVICE="${NOFI_SERVICE:-php}"
+
+if ! docker compose ps --status running --services 2>/dev/null | grep -qx "$SERVICE"; then
+    echo "./docker: service '$SERVICE' is not running." >&2
+    echo "          start it with: docker compose up -d" >&2
+    exit 1
+fi
+
+# With no arguments, drop into a shell.
+if [ "$#" -eq 0 ]; then
+    set -- sh
+fi
+
+opts=()
+
+# "docker compose exec" allocates a TTY by default, which corrupts piped output
+# and breaks command substitution. Only ask for one when we really have a
+# terminal on both ends.
+if [ ! -t 0 ] || [ ! -t 1 ]; then
+    opts+=(-T)
+fi
+
+# The container itself runs as root, so without this every file a console
+# command writes into a bind-mounted directory would be owned by root on the
+# host — which is how the JWT keys kept coming back as root:root.
+opts+=(--user "${NOFI_USER:-$(id -u):$(id -g)}")
+
+exec docker compose exec "${opts[@]}" "$SERVICE" "$@"

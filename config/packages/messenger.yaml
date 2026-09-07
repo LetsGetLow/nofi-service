@@ -1,0 +1,31 @@
+framework:
+    messenger:
+        transports:
+            async:
+                dsn: "%env(MESSENGER_TRANSPORT_DSN)%"
+                options:
+                    use_notify: true
+                    check_delayed_interval: 60000
+                retry_strategy:
+                    max_retries: 5
+                    delay: 5000
+                    multiplier: 2
+                    max_delay: 60000
+            failed:
+                dsn: "%env(MESSENGER_TRANSPORT_DSN)%"
+                options:
+                    queue_name: failed
+        # No routing map: every message carries #[AsMessage("async")] itself.
+        # Only SendEmailNotification was listed here, so the entry said
+        # nothing the attribute did not already say, while looking as though
+        # the other two were unrouted.
+        failure_transport: failed
+
+when@test:
+    framework:
+        messenger:
+            transports:
+                # Nothing is consumed during tests, so messages stay in memory
+                # and can be asserted on instead of reaching a database.
+                async: 'in-memory://'
+                failed: 'in-memory://'

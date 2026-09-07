@@ -1,0 +1,54 @@
+{# Example email template. Address it from the API as "template": "example".
+
+   Available variables:
+     subject   the subject of the notification
+     message   the message field of the request
+     plus every key of the request's "data" object
+
+   Delete this file once you have templates of your own. #}
+<!DOCTYPE html>
+<html lang="en">
+<body style="font-family: system-ui, sans-serif; line-height: 1.5; color: #222;">
+    <h1 style="font-size: 20px;">{{ subject }}</h1>
+
+    <div>{{ message|raw }}</div>
+
+    {% if customerName is defined %}
+        <p>Best regards to {{ customerName }}.</p>
+    {% endif %}
+
+    {# A key of "data" holding a list can be looped over like any Twig value.
+       Guarded with "is defined" because nothing validates that a request
+       carries the keys a template happens to use: a missing one is null, and
+       iterating null raises at render time, which fails the whole send. #}
+    {% if items is defined and items is iterable %}
+        <table role="presentation" cellpadding="8" cellspacing="0"
+               style="border-collapse: collapse; margin-top: 16px;">
+            <thead>
+                <tr style="background: #f2f2f2; text-align: left;">
+                    <th style="border: 1px solid #ddd;">Article</th>
+                    <th style="border: 1px solid #ddd;">Quantity</th>
+                    <th style="border: 1px solid #ddd;">Price</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                    <tr>
+                        <td style="border: 1px solid #ddd;">{{ item.name|default('—') }}</td>
+                        <td style="border: 1px solid #ddd;">{{ item.quantity|default(1) }}</td>
+                        <td style="border: 1px solid #ddd;">{{ item.price|default('—') }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+            {% if total is defined %}
+                <tfoot>
+                    <tr>
+                        <td colspan="2" style="border: 1px solid #ddd; font-weight: bold;">Total</td>
+                        <td style="border: 1px solid #ddd; font-weight: bold;">{{ total }}</td>
+                    </tr>
+                </tfoot>
+            {% endif %}
+        </table>
+    {% endif %}
+</body>
+</html>

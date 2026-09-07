@@ -1,0 +1,19 @@
+api_platform:
+    title: nofi-service
+    description: >-
+        Notification service. Sends email and push notifications, accepted over
+        a JWT protected API and delivered by background workers, so a send is
+        acknowledged with 202 and its outcome read back per recipient.
+    # The routes carry /v1, so this moves with a breaking change to them.
+    version: 1.0.0
+    defaults:
+        stateless: true
+        cache_headers:
+            vary: ['Content-Type', 'Authorization', 'Origin']
+        # A caller could ask for a page but not for its size: itemsPerPage is
+        # ignored unless the client is allowed to send it, so every request
+        # silently got the default 30. The maximum is what keeps a caller from
+        # asking for the whole table in one response.
+        pagination_items_per_page: 25
+        pagination_client_items_per_page: true
+        pagination_maximum_items_per_page: 100

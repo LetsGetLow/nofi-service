@@ -1,0 +1,117 @@
+services:
+    php:
+        restart: unless-stopped
+        build:
+            dockerfile: Dockerfile.frankenphp
+            target: prod
+        # Mapped port for port, because Caddy puts its own port into the
+        # redirect it sends to an HTTP caller. Publishing 8443 as 443 inside
+        # would redirect visitors to a port nothing listens on.
+        ports:
+            - "${HTTP_PORT:-8080}:${HTTP_PORT:-8080}"
+            - "${HTTPS_PORT:-8443}:${HTTPS_PORT:-8443}"
+            - "${HTTPS_PORT:-8443}:${HTTPS_PORT:-8443}/udp"
+        environment:
+            # Read by the Caddyfile: it serves these ports and builds its
+            # HTTP to HTTPS redirect from them, so they have to be the ones
+            # the outside world uses. The host name stays bare here; the
+            # Caddyfile appends the port where it needs one.
+            HTTP_PORT: "${HTTP_PORT:-8080}"
+            HTTPS_PORT: "${HTTPS_PORT:-8443}"
+            SERVER_NAME: "${SERVER_NAME:-localhost}"
+            # Both are read by PHP's ini parser, not by the application, and
+            # the fallbacks match the image defaults so stripping them from
+            # .env cannot silently mean "no limit". post_max_size is only here:
+            # the workers consume from the queue and never parse a request
+            # body.
+            PHP_POST_MAX_SIZE: "${PHP_POST_MAX_SIZE:-32M}"
+            PHP_MEMORY_LIMIT: "${PHP_MEMORY_LIMIT:-128M}"
+        # Secrets are injected at runtime; they are excluded from the image.
+        env_file:
+            - path: .env.local
+              required: false
+        volumes:
+            # Only what the image deliberately excludes. Everything else,
+            # vendor included, comes from the image so the two services can
+            # never run against different dependencies.
+            - "./config/jwt:/app/config/jwt:ro"
+            # Only so /health can report whether push is configured. Sending is
+            # the workers' job; without this the endpoint would answer
+            # "disabled" in production while they hold the credentials, because
+            # the file is excluded from the image by .dockerignore and dev only
+            # sees it through the whole-config mount in compose.override.yaml.
+            - "./config/firebase:/app/config/firebase:ro"
+            - "var_data:/app/var"
+        depends_on:
+           - database
+        healthcheck:
+           # -L follows Caddy's redirect to HTTPS and -k accepts its local
+           # certificate; -f turns the 503 from an unreachable database into
+           # an unhealthy container. The port is the one Caddy was told to
+           # serve, so it moves with HTTPS_PORT.
+           test: ["CMD", "curl", "-fsSkL", "https://localhost:${HTTPS_PORT:-8443}/health"]
+           timeout: 5s
+           interval: 10s
+           retries: 3
+           start_period: 30s
+
+    messenger-worker:
+        restart: unless-stopped
+        build:
+            dockerfile: Dockerfile.frankenphp
+            target: prod
+        env_file:
+            - path: .env.local
+              required: false
+        environment:
+            # The same PHP setting as the php service, overridden here and read
+            # from a variable of its own, because one .env entry cannot hold
+            # two values and a long running consumer is sized differently from
+            # a single request. It has to stay above MESSENGER_MEMORY_LIMIT
+            # below: that one is checked between messages and exits cleanly,
+            # this one is PHP's hard limit and kills the process where it
+            # stands.
+            PHP_MEMORY_LIMIT: "${PHP_WORKER_MEMORY_LIMIT:-256M}"
+        volumes:
+            - "./config/firebase:/app/config/firebase:ro"
+            - "var_data:/app/var"
+        # The limit is a restart threshold, not a cap: the worker exits once it
+        # is reached and Compose starts it again, which sheds whatever a long
+        # running process accumulated. Raise it for large attachments.
+        command: php bin/console messenger:consume async -vv --memory-limit=${MESSENGER_MEMORY_LIMIT:-160M}
+        deploy:
+            replicas: ${MESSENGER_NUM_WORKERS:-8}
+        depends_on:
+            - database
+        healthcheck:
+            test: ["CMD", "pgrep", "-f", "messenger:consume"]
+            timeout: 5s
+            interval: 10s
+            retries: 3
+            start_period: 10s
+
+    ###> doctrine/doctrine-bundle ###
+    database:
+        restart: unless-stopped
+        image: postgres:${POSTGRES_VERSION:-16}-alpine
+        environment:
+            POSTGRES_DB: ${POSTGRES_DB:-app}
+            # You should definitely change the password in production
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-!ChangeMe!}
+            POSTGRES_USER: ${POSTGRES_USER:-app}
+        healthcheck:
+            test: ["CMD", "pg_isready", "-d", "${POSTGRES_DB:-app}", "-U", "${POSTGRES_USER:-app}"]
+            timeout: 5s
+            retries: 5
+            start_period: 60s
+        volumes:
+            - database_data:/var/lib/postgresql/data:rw
+            # You may use a bind-mounted host directory instead, so that it is harder to accidentally remove the volume and lose all your data!
+            # - ./docker/db/data:/var/lib/postgresql/data:rw
+###< doctrine/doctrine-bundle ###
+
+volumes:
+    ###> doctrine/doctrine-bundle ###
+    database_data:
+    ###< doctrine/doctrine-bundle ###
+    var_data:

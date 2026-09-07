@@ -1,0 +1,4 @@
+{# Fixture: references a variable the caller does not supply. With
+   strict_variables on in the test environment, rendering this throws, which
+   is how a template that exists but cannot render is exercised. #}
+<p>{{ never_provided_variable }}</p>

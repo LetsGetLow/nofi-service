@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<psalm
+    errorLevel="6"
+    resolveFromConfigFile="true"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="https://getpsalm.org/schema/config"
+    xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
+    findUnusedBaselineEntry="true"
+    findUnusedCode="false"
+>
+    <!-- findUnusedCode is off above because nothing in src/ calls a Symfony
+         service: the container does. With it on, all three console commands,
+         the health controller, every message handler, both security
+         listeners, the constraint validator and the OpenAPI decorator came
+         back as dead classes, along with the entity accessors Doctrine calls
+         and the #[Assert\Callback] methods the validator calls — 47 findings,
+         none of them real, burying the 10 that were. -->
+
+    <projectFiles>
+        <directory name="src" />
+        <ignoreFiles>
+            <directory name="vendor" />
+        </ignoreFiles>
+    </projectFiles>
+</psalm>

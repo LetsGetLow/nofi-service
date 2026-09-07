@@ -1,0 +1,79 @@
+# access_control has to be defined in a single section, so the one rule that
+# differs per environment is expressed as a parameter instead.
+parameters:
+    api_docs_role: "IS_AUTHENTICATED_FULLY"
+
+security:
+    # https://symfony.com/doc/current/security.html#registering-the-user-hashing-passwords
+    password_hashers:
+        Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface:
+            algorithm: argon2id
+            memory_cost: 65536
+            time_cost: 4
+
+    # https://symfony.com/doc/current/security.html#loading-the-user-the-user-provider
+    providers:
+        users_in_database:
+            entity:
+                class: Nofi\Entity\User
+                property: username
+
+    firewalls:
+        dev:
+            # Ensure dev tools and static assets are always allowed
+            pattern: ^/(_profiler|_wdt|assets|build)/
+            security: false
+
+        api_login:
+            pattern: ^/api/auth
+            stateless: true
+            provider: users_in_database
+            json_login:
+                check_path: /api/auth/login
+                username_path: username
+                password_path: password
+                success_handler: lexik_jwt_authentication.handler.authentication_success
+                failure_handler: lexik_jwt_authentication.handler.authentication_failure
+
+        api:
+            pattern: ^/api
+            stateless: true
+            provider: users_in_database
+            jwt: ~
+
+        main:
+            lazy: true
+            provider: users_in_database
+
+            # Activate different ways to authenticate:
+            # https://symfony.com/doc/current/security.html#the-firewall
+
+            # https://symfony.com/doc/current/security/impersonating_user.html
+            # switch_user: true
+
+    # Note: Only the *first* matching rule is applied, so the most specific paths
+    # come first and ^/api closes everything that is not listed above.
+    access_control:
+        # Obtaining a token must stay reachable without one.
+        - { path: ^/api/auth, roles: PUBLIC_ACCESS }
+        - { path: ^/api/admin, roles: ROLE_ADMIN }
+        # The interactive documentation is the first thing an integrator opens
+        # and a browser sends no Authorization header, so a token requirement
+        # means it cannot be opened at all. Public in development, closed
+        # everywhere else. The JSON-LD contexts it links to follow it.
+        - { path: ^/api/(docs|contexts), roles: "%api_docs_role%" }
+        - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
+
+when@dev:
+    parameters:
+        api_docs_role: "PUBLIC_ACCESS"
+
+when@test:
+    security:
+        password_hashers:
+            # Password hashers are resource-intensive by design to ensure security.
+            # In tests, it's safe to reduce their cost to improve performance.
+            Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface:
+                algorithm: argon2id
+                time_cost: 3 # Lowest value SodiumPasswordHasher accepts
+                memory_cost: 1024

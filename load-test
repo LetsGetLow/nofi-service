@@ -1,0 +1,44 @@
+#!/bin/env bash
+set -euo pipefail
+
+# Credentials are no longer seeded into the database. Create an account first:
+#   bin/console nofi:user:create loadtest
+# then export NOFI_PASSWORD before running this script.
+BASE_URL="${NOFI_BASE_URL:-https://localhost:8443}"
+USERNAME="${NOFI_USERNAME:-loadtest}"
+PASSWORD="${NOFI_PASSWORD:?set NOFI_PASSWORD to the password of ${NOFI_USERNAME:-loadtest}}"
+SENDER="${NOFI_SENDER:-noreply@example.com}"
+RECIPIENT="${NOFI_RECIPIENT:-noreply@example.com}"
+NUM_MESSAGES="${NOFI_NUM_MESSAGES:-100000}"
+
+fetch_token() {
+  curl -sk -X POST "${BASE_URL}/api/auth/login" \
+    -H "Content-Type: application/json" \
+    --data-raw "$(jq -nc --arg u "$USERNAME" --arg p "$PASSWORD" \
+      '{username: $u, password: $p}')" \
+    | jq -r '.token'
+}
+
+TOKEN="$(fetch_token)"
+if [[ -z "$TOKEN" || "$TOKEN" == "null" ]]; then
+  echo "Login failed for ${USERNAME} at ${BASE_URL}" >&2
+  exit 1
+fi
+
+PAYLOAD="$(jq -nc --arg s "$SENDER" --arg r "$RECIPIENT" \
+  '{channel: "email", sender: $s, subject: "title", message: "<h1>body text</h1>", recipients: [$r]}')"
+
+for i in $(seq 1 "$NUM_MESSAGES"); do
+  if (( i % 15000 == 0 )); then
+    TOKEN="$(fetch_token)"
+  fi
+
+  curl -sk --request POST "${BASE_URL}/api/v1/notifications/send" \
+    --header 'Content-Type: application/ld+json' \
+    --header "Authorization: Bearer ${TOKEN}" \
+    --data-raw "$PAYLOAD" \
+    > /dev/null
+
+  printf "\r%d/%d" "$i" "$NUM_MESSAGES"
+done
+echo

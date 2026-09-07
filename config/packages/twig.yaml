@@ -1,0 +1,20 @@
+twig:
+    file_name_pattern: '*.twig'
+    paths:
+        # Email bodies live here and are addressed by bare filename from the
+        # API: template "welcome" resolves to @mail/welcome.html.twig. The
+        # directory is fixed in the loader, so a request can never reach a
+        # template outside it.
+        #
+        # Not called "email": symfony/twig-bridge already owns that namespace
+        # for its own email themes, and sharing it would make resolution
+        # depend on path order.
+        '%kernel.project_dir%/templates/mail': mail
+
+when@test:
+    twig:
+        strict_variables: true
+        paths:
+            # Templates that only exist to be exercised by tests, in the same
+            # namespace so they are reached exactly like real ones.
+            '%kernel.project_dir%/tests/Fixtures/mail': mail

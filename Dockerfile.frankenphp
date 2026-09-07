@@ -1,0 +1,184 @@
+# syntax=docker/dockerfile:1
+
+# Shared runtime. Xdebug and the development dependencies live in the dev
+# stage only; the default build target is prod.
+FROM dunglas/frankenphp AS base
+
+ENV COMPOSER_ALLOW_SUPERUSER=1
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git unzip curl procps \
+    && rm -rf /var/lib/apt/lists/*
+
+# PostgreSQL drivers for Doctrine, plus opcache for the worker runtime.
+RUN install-php-extensions pdo_pgsql pgsql opcache
+
+# The request body limit belongs here rather than in the application: PHP
+# discards a body larger than this before any code runs, so the caller gets a
+# deserialisation error on an empty payload instead of the attachment
+# validation message. Attachments arrive base64 encoded, which inflates them by
+# a third, so it has to stay clear of
+# SendNotificationDto::MAX_TOTAL_ATTACHMENT_BYTES: 5 MiB of files is nearly
+# 7 MiB on the wire before the message and recipients are counted.
+#
+# memory_limit sits alongside it because the two have to move together: PHP
+# will accept a body up to post_max_size and then needs the memory to decode
+# it, and a base64 attachment is held more than once on its way to the queue.
+# The default is PHP's own 128M, so this changes nothing by itself — it only
+# makes the ceiling something a deployment can raise rather than a number
+# baked into the base image.
+#
+# PHP's ini parser expands ${...} from the environment, which is what makes
+# both settable per deployment — see .env. The ENV defaults are not
+# decoration: an unset variable expands to an empty string, and an empty
+# post_max_size means no limit at all while an empty memory_limit means
+# unlimited memory. Single quotes keep the placeholders literal so the build
+# does not bake today's values into the file.
+ENV PHP_POST_MAX_SIZE=32M \
+    PHP_MEMORY_LIMIT=128M
+RUN printf 'post_max_size = ${PHP_POST_MAX_SIZE}\nmemory_limit = ${PHP_MEMORY_LIMIT}\n' \
+    > /usr/local/etc/php/conf.d/zz-runtime.ini
+
+# Both stages need it: without this the image runs the base image's own
+# Caddyfile, and the security headers, the JSON log format and the
+# X-Accel-Redirect handling in ours are simply not in effect. The path is
+# /etc/frankenphp, not the /etc/caddy a plain Caddy image would use.
+COPY Caddyfile /etc/frankenphp/Caddyfile
+
+WORKDIR /app
+
+
+# Dependencies resolve in their own stage so application changes do not
+# invalidate the composer layer.
+FROM base AS vendor
+
+COPY composer.json composer.lock symfony.lock ./
+RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-progress
+
+
+FROM base AS prod
+
+ENV APP_ENV=prod \
+    APP_DEBUG=0
+
+COPY --from=vendor /app/vendor ./vendor
+COPY . .
+
+RUN composer dump-autoload --no-dev --optimize --classmap-authoritative \
+    # public/bundles carries the stylesheets and scripts /api/docs loads, and
+    # it is gitignored: it exists in the build context only on a machine that
+    # happened to run "composer install" with its auto-scripts, so an image
+    # built from a fresh clone used to serve that page unstyled. Nothing here
+    # runs those scripts either — the vendor stage installs --no-scripts — so
+    # install the assets explicitly. Ordered after dump-autoload because
+    # bin/console needs the optimised autoloader to boot.
+    && php bin/console assets:install public --no-interaction \
+    && mkdir -p var/cache var/log \
+    # FrankenPHP binds 80 and 443, which are privileged. Granting the binary
+    # that one capability is enough, so the server itself need not be root.
+    && setcap CAP_NET_BIND_SERVICE=+eip /usr/local/bin/frankenphp \
+    # Caddy keeps certificates in /data/caddy and its autosaved config in
+    # /config/caddy; Symfony writes cache and logs to var.
+    && mkdir -p /data/caddy /config/caddy \
+    && chown -R www-data:www-data var /data/caddy /config/caddy
+
+# Anything mounted in at runtime (config/jwt, config/firebase) must be
+# readable by this user. See "Production" in README.md.
+USER www-data
+
+
+# The development stage deliberately stays root: the source tree is bind
+# mounted from the host under the developer's own uid, and console commands
+# such as lexik:jwt:generate-keypair write back into it — as does
+# dev-entrypoint.sh, which has to hand the vendor it seeds to that uid.
+#
+# It is split in three because the frontend assets cannot be built in the stage
+# that ships them; see dev-assets below. Only "dev" is ever a build target.
+FROM base AS dev-base
+
+ENV APP_ENV=dev
+
+RUN install-php-extensions xdebug
+
+COPY composer.json composer.lock symfony.lock ./
+
+# Composer still installs into /app/vendor — same invocation, same autoload
+# files as before — and the finished tree is then parked at /opt/vendor. It
+# cannot stay in /app: compose.override.yaml bind mounts the host's ./vendor
+# over /app/vendor, and a bind mount hides whatever the image put underneath.
+# On a fresh clone ./vendor does not exist, so the daemon creates it empty and
+# root owned, and bin/console dies on the missing autoload_runtime.php before
+# anything else runs. Nothing in the overlay reaches /opt. A built vendor
+# survives the move because autoload_*.php and vendor/composer/*.php resolve
+# everything from __DIR__ at run time and vendor/bin/* are PHP proxies rather
+# than symlinks. The lock travels with it so dev-entrypoint.sh can tell whether
+# this image is still current before it refreshes anyone's vendor. The mv
+# shares this RUN on purpose: in a layer of its own it would store all 79 MB a
+# second time.
+RUN composer install --no-scripts --prefer-dist --no-progress \
+    && mv vendor /opt/vendor \
+    && cp composer.lock /opt/composer.lock
+
+# Outside /app for the same reason /opt/vendor is: nothing in the overlay can
+# mount over it. Copied before the source so an application change does not
+# invalidate the layer, and --chmod makes the executable bit a property of the
+# image rather than of whoever cloned the repository.
+COPY --chmod=0755 dev-entrypoint.sh /usr/local/bin/dev-entrypoint.sh
+
+COPY . .
+
+# ./docker runs commands as the host user so that files written into the
+# mounted source tree stay owned by the developer. That uid is unknown at
+# build time and the var volume inherits these permissions when it is first
+# created, so make it writable for whoever that turns out to be.
+RUN mkdir -p var/cache var/log && chmod -R 777 var
+
+
+# assets:install cannot run in dev-base, because dev-base has no /app/vendor:
+# the Symfony runtime derives the project directory from wherever autoload
+# resolves, so pointing it at /opt/vendor makes it believe the project is /opt
+# and it dies on a missing /opt/.env. The vendor therefore comes back to
+# /app/vendor for the length of this stage, which is thrown away — only the few
+# megabytes under public/bundles are copied out of it, never the copy.
+FROM dev-base AS dev-assets
+
+RUN cp -a /opt/vendor vendor \
+    && php bin/console assets:install public --no-interaction
+
+
+# What CI runs in, and it exists for one reason: GitLab overrides a job image's
+# ENTRYPOINT, so dev-entrypoint.sh never runs and nothing seeds /app/vendor the
+# way it does for a container Compose started. A job on the dev image would die
+# on the "Symfony Runtime is missing" error the README's Troubleshooting section
+# describes, before a single test ran. Bringing the vendor back at build time
+# instead is the same move dev-assets makes, for the same reason: /opt/vendor
+# cannot be used in place, because the Symfony runtime derives the project
+# directory from wherever autoload resolves and would decide the project is
+# /opt.
+#
+# No ENTRYPOINT and no CMD: every job states its own command.
+FROM dev-base AS ci
+
+RUN cp -a /opt/vendor vendor
+
+
+FROM dev-base AS dev
+
+# Parked outside /app for the same reason /opt/vendor is: compose.override.yaml
+# bind mounts the host's ./public over /app/public, and public/bundles is
+# gitignored, so on a fresh clone the mount covers the image's assets with a
+# directory that holds nothing but index.php and every stylesheet, script and
+# image on /api/docs 404s. dev-entrypoint.sh fills /app/public/bundles from
+# here. The assets are plain copies, never symlinks, so they survive the move.
+COPY --from=dev-assets /app/public/bundles /opt/public-bundles
+
+# Declaring ENTRYPOINT resets the CMD inherited from dunglas/frankenphp to
+# empty, so the server arguments have to be repeated verbatim. Without them the
+# php service would start with no arguments at all, docker-php-entrypoint would
+# exec nothing and the container would exit immediately. The worker replaces
+# this CMD through "command:" in compose.yaml, and neither the health checks
+# nor ./docker pass through the entrypoint, so both are unaffected.
+ENTRYPOINT ["dev-entrypoint.sh"]
+CMD ["--config", "/etc/frankenphp/Caddyfile", "--adapter", "caddyfile"]

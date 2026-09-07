@@ -1,0 +1,117 @@
+services:
+  php:
+    build:
+      target: dev
+    # Der Quellcode wird gemountet, damit Änderungen ohne Rebuild im Container
+    # ankommen. Ein Neustart bleibt trotzdem nötig: FrankenPHP hält die
+    # Anwendung im Worker-Modus im Speicher, "docker compose watch" übernimmt das.
+    volumes:
+      - "./composer.json:/app/composer.json"
+      - "./composer.lock:/app/composer.lock"
+      - "./symfony.lock:/app/symfony.lock"
+      # Dotenv and the test config are read from the image otherwise, so
+      # editing them would need a rebuild before tests saw the change.
+      - "./.env:/app/.env:ro"
+      - "./.env.test:/app/.env.test:ro"
+      - "./phpunit.dist.xml:/app/phpunit.dist.xml:ro"
+      # Same reason as phpunit.dist.xml: psalm reads its config from the image
+      # otherwise, so editing psalm.xml would need a rebuild before psalm saw
+      # the change — including the plugins it is told to load.
+      - "./psalm.xml:/app/psalm.xml:ro"
+      # /app is root owned and ./docker runs as the host user, so PHPUnit
+      # needs a writable cache directory of its own.
+      - "./.phpunit.cache:/app/.phpunit.cache"
+      - "./src:/app/src"
+      - "./config:/app/config"
+      # compose.yaml mounts config/jwt read-only, which is right in production
+      # but stops lexik:jwt:generate-keypair from writing here. Re-mount it
+      # writable for development only.
+      - "./config/jwt:/app/config/jwt"
+      - "./templates:/app/templates"
+      - "./public:/app/public"
+      - "./migrations:/app/migrations"
+      - "./bin:/app/bin"
+      - "./tests:/app/tests"
+      - "./vendor:/app/vendor"
+    develop:
+      watch:
+        # Gemountete Pfade brauchen kein sync mehr, nur noch den Neustart.
+        - action: restart
+          path: ./src
+        - action: restart
+          path: ./config
+        - action: restart
+          path: ./public
+        # Twig kompiliert Templates im Dev-Modus zur Laufzeit neu, daher kein Eintrag.
+        # Der Caddyfile liegt außerhalb von /app und muss weiterhin synchronisiert werden.
+        - action: sync+restart
+          path: ./Caddyfile
+          target: /etc/frankenphp/Caddyfile
+        # Composer-Änderungen erfordern ein vollständiges Rebuild
+        - action: rebuild
+          path: composer.json
+        - action: rebuild
+          path: composer.lock
+        # Dockerfile-Änderungen erfordern ein Rebuild
+        - action: rebuild
+          path: Dockerfile.frankenphp
+
+  messenger-worker:
+    build:
+      target: dev
+    # Dieselben Mounts wie php: ein eigenes vendor-Volume war hier still
+    # veraltet und der Worker scheiterte an "Class Kreait\Firebase\Factory not found".
+    volumes:
+      - "./composer.json:/app/composer.json:ro"
+      - "./composer.lock:/app/composer.lock:ro"
+      - "./symfony.lock:/app/symfony.lock:ro"
+      - "./.env:/app/.env:ro"
+      - "./src:/app/src:ro"
+      - "./config:/app/config:ro"
+      - "./templates:/app/templates:ro"
+      - "./migrations:/app/migrations:ro"
+      - "./bin:/app/bin:ro"
+      - "./vendor:/app/vendor"
+    develop:
+      watch:
+        # Der Worker lädt den Code beim Start, also genügt ein Neustart.
+        - action: restart
+          path: ./src
+        - action: restart
+          path: ./config
+        - action: restart
+          path: ./templates
+        - action: restart
+          path: ./bin
+        # Composer-Änderungen erfordern ein vollständiges Rebuild
+        - action: rebuild
+          path: composer.json
+        - action: rebuild
+          path: composer.lock
+        # Dockerfile-Änderungen erfordern ein Rebuild
+        - action: rebuild
+          path: Dockerfile.frankenphp
+###> doctrine/doctrine-bundle ###
+  database:
+    # env_file values are injected into containers but are not available to
+    # Compose's ${...} interpolation in compose.yaml. Reset the production
+    # fallback so PostgreSQL and the application both use .env.local in dev.
+    env_file:
+      - path: .env.local
+        required: false
+    environment:
+      POSTGRES_PASSWORD: !reset null
+    ports:
+      - "54321:5432"
+###< doctrine/doctrine-bundle ###
+
+###> symfony/mailer ###
+  mailer:
+    image: axllent/mailpit
+    ports:
+      - "1025"
+      - "8025"
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+###< symfony/mailer ###
