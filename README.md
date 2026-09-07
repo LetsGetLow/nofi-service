@@ -648,17 +648,6 @@ digits, hyphens, underscores, dots, tildes and percent signs are allowed, which
 is FCM's own rule. A token cannot be checked that way; it stays opaque and
 fails per device if the provider refuses it.
 
-The Flutter apps in `base-app` already subscribe to topics, prefixed by
-environment (`base/plugin/mobile_app/lib/helpers/firebase_setup.dart`):
-
-| topic | who receives it |
-|---|---|
-| `test_notif_all` / `live_notif_all` | every device on that environment |
-| `test_notif_android_device`, `test_notif_ios_device` | that platform |
-| `test_notif_local_test_notification_v2` | debug builds only, meant for exactly this |
-
-`live_notif_*` reaches real customer installations. Use the `test_notif_*` ones.
-
 > **A topic send always succeeds.** FCM accepts a message for a topic with no
 > subscribers at all and reports success, so a green send is not evidence that
 > anything was delivered, and `sent` on the recipient row means "FCM took it".
