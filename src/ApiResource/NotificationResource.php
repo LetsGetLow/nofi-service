@@ -78,8 +78,10 @@ use Symfony\Component\Uid\Uuid;
                 description: "Requires ROLE_ADMIN, and removes the record along with its recipients. "
                     . "To stop a send but keep the record, use POST /notifications/{id}/cancel "
                     . "instead. Only a notification that is still waiting can be removed: one that "
-                    . "is finished is kept as the record of what went out and the call is answered "
-                    . "with 409 Conflict.",
+                    . "is already being delivered, or is finished, is kept as the record of what "
+                    . "went out and the call is answered with 409 Conflict. That is the same rule "
+                    . "cancelling applies — a send a worker has picked up cannot be stopped either "
+                    . "way.",
             ),
             security: "is_granted('ROLE_ADMIN')",
             provider: NotificationProvider::class,

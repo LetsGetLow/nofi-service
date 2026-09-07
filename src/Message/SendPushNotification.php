@@ -23,11 +23,13 @@ class SendPushNotification implements NotificationMessage
         return $this->notificationId;
     }
 
+    #[Override]
     public function getNotificationDto(): SendNotificationDto
     {
         return $this->notificationDto;
     }
 
+    #[Override]
     public function getUserId(): string
     {
         return $this->userId;

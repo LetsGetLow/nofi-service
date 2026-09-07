@@ -49,7 +49,7 @@ final readonly class CancelNotificationProcessor implements ProcessorInterface
             throw new NotFoundHttpException("Notification not found.");
         }
 
-        if (!$notification->getStatus()->isWaiting()) {
+        if (!$notification->getStatus()->isWithdrawable()) {
             throw new ConflictHttpException(sprintf(
                 'Notification %s is %s and cannot be cancelled. Only a send that has '
                 . 'not gone out yet can be stopped.',

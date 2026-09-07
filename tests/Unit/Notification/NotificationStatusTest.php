@@ -33,6 +33,20 @@ class NotificationStatusTest extends TestCase
     }
 
     #[Test]
+    public function isWithdrawableCoversEveryStatusASendCanStillBeStoppedIn(): void
+    {
+        $this->assertTrue(NotificationStatus::CREATED->isWithdrawable());
+        $this->assertTrue(NotificationStatus::QUEUED->isWithdrawable());
+        // The one that matters: a worker is already delivering, so neither
+        // cancelling nor deleting may stop it. Delete used to ask isFinal()
+        // here, which is false for PROCESSING, and removed the record.
+        $this->assertFalse(NotificationStatus::PROCESSING->isWithdrawable());
+        $this->assertFalse(NotificationStatus::FAILED->isWithdrawable());
+        $this->assertFalse(NotificationStatus::SENT->isWithdrawable());
+        $this->assertFalse(NotificationStatus::CANCELLED->isWithdrawable());
+    }
+
+    #[Test]
     public function isResendableDeterminesIfStatusCanBeResent(): void
     {
         $this->assertFalse(NotificationStatus::CREATED->isResendable());

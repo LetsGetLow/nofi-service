@@ -174,9 +174,19 @@ class Notification
         return $this;
     }
 
+    /**
+     * The property is nullable because the constructor cannot know the creator
+     * — assignCreatedBy() runs before the notification is persisted, and the
+     * column is NOT NULL. Returning it as a plain User was a promise the class
+     * could not keep: before assignment it returned null through a non-nullable
+     * return type, which is a TypeError at the call site rather than here.
+     */
     public function getCreatedBy(): User
     {
-        return $this->createdBy;
+        return $this->createdBy ?? throw new LogicException(sprintf(
+            "Notification %s has no creator yet; assignCreatedBy() has not run.",
+            $this->id,
+        ));
     }
 
     public function assignCreatedBy(User $createdBy): static

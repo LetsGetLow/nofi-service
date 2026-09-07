@@ -32,6 +32,21 @@ enum NotificationStatus: string
         return $this === self::FAILED;
     }
 
+    /**
+     * May a caller still stop this send, by cancelling or deleting it?
+     *
+     * PROCESSING is deliberately not withdrawable: a worker is already
+     * delivering, so withdrawing would race the send rather than prevent it.
+     * That is the same rule allowedTransitions() encodes by leaving CANCELLED
+     * off PROCESSING — named once here because cancel and delete each used to
+     * ask it their own way, and disagreed. Cancel asked isWaiting() and
+     * refused; delete asked isFinal() and let a send in flight be removed.
+     */
+    public function isWithdrawable(): bool
+    {
+        return $this->isWaiting();
+    }
+
     public function allowedTransitions(): array
     {
         return match ($this) {

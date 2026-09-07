@@ -115,9 +115,17 @@ class NotificationRecipient
         return $this;
     }
 
+    /**
+     * Nullable for the same reason as Notification::getCreatedBy(): the back
+     * reference is set by attachToNotification(), not by the constructor, so
+     * declaring a plain Notification return promised something that was not
+     * true until then.
+     */
     public function getNotification(): Notification
     {
-        return $this->notification;
+        return $this->notification ?? throw new LogicException(
+            "The recipient is not attached to a notification yet.",
+        );
     }
 
     public function attachToNotification(Notification $notification): static

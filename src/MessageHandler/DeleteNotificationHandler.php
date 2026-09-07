@@ -25,7 +25,10 @@ final readonly class DeleteNotificationHandler
             return;
         }
 
-        if ($notification->getStatus()->isFinal()) {
+        // The last word on the rule, because the status can move between the
+        // processor's check and this one: a send that has started, or is over,
+        // is not removed.
+        if (!$notification->getStatus()->isWithdrawable()) {
             return;
         }
 

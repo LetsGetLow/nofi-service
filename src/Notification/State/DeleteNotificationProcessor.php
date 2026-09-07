@@ -32,13 +32,18 @@ final readonly class DeleteNotificationProcessor implements ProcessorInterface
         }
 
         // Deleting is asynchronous, and the handler refuses a notification
-        // that already went out. Refusing here as well is what makes the
-        // answer honest: without it the caller is told 204 No Content for a
+        // that can no longer be withdrawn. Refusing here as well is what makes
+        // the answer honest: without it the caller is told 204 No Content for a
         // request that will quietly do nothing.
-        if ($data->status->isFinal()) {
+        //
+        // Asked as isWithdrawable() rather than isFinal(), because PROCESSING
+        // is neither final nor stoppable: isFinal() let a DELETE remove a
+        // notification while a worker was mid-delivery, which is exactly what
+        // the cancel operation refuses to do.
+        if (!$data->status->isWithdrawable()) {
             throw new ConflictHttpException(sprintf(
                 'Notification %s is %s and cannot be deleted. Only a send that has '
-                . 'not gone out yet can be cancelled.',
+                . 'not started yet can be withdrawn.',
                 $data->id,
                 $data->status->value,
             ));

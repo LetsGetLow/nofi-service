@@ -252,7 +252,7 @@ Everything lives under `/api/v1/notifications`, and every call needs a JWT.
 | `GET` | `/api/v1/notifications` | The notifications you created, 25 per page. An administrator sees everyone's. |
 | `GET` | `/api/v1/notifications/{id}` | One notification with its status, channel, payload and timestamps. |
 | `POST` | `/api/v1/notifications/{id}/cancel` | Stops a send that has not gone out yet and keeps it as `cancelled`. No body. |
-| `DELETE` | `/api/v1/notifications/{id}` | Removes a send that has not gone out yet, record and all. **Requires `ROLE_ADMIN`.** Anything finished is kept and answered `409`. |
+| `DELETE` | `/api/v1/notifications/{id}` | Removes a send that has not started yet, record and all. **Requires `ROLE_ADMIN`.** Anything already being delivered or finished is kept and answered `409`. |
 
 `POST` is the odd one out on purpose: its body is not the resource you read
 back — it carries `recipients` or `tokens` and `topics`, attachments and
