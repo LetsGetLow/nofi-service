@@ -10,9 +10,9 @@
 #   ./docker                                  # interactive shell
 #   NOFI_SERVICE=messenger-worker ./docker bin/console messenger:stats
 #
-# Commands run as your own uid, so anything written into the mounted source
-# tree stays yours instead of turning up owned by root. Override with
-# NOFI_USER for the rare command that needs root inside the container:
+# On Docker, commands run as your host uid so bind-mounted files stay yours.
+# On rootless Podman, container root maps to your host uid, so that is the
+# writable identity for bind mounts. Override either default with NOFI_USER:
 #
 #   NOFI_USER=root ./docker install-php-extensions redis
 #
@@ -42,9 +42,19 @@ if [ ! -t 0 ] || [ ! -t 1 ]; then
     opts+=(-T)
 fi
 
-# The container itself runs as root, so without this every file a console
-# command writes into a bind-mounted directory would be owned by root on the
-# host — which is how the JWT keys kept coming back as root:root.
-opts+=(--user "${NOFI_USER:-$(id -u):$(id -g)}")
+# Rootless Podman maps container uid 0 to the host developer's uid. Passing
+# the host uid *inside* that container instead selects a subordinate host uid,
+# which cannot write host-owned bind mounts such as config/jwt.
+if [ -n "${NOFI_USER:-}" ]; then
+    container_user=$NOFI_USER
+else
+    docker_endpoint=${DOCKER_HOST:-$(docker context inspect --format '{{.Endpoints.docker.Host}}' 2>/dev/null || true)}
+    if [[ "$docker_endpoint" == unix:///run/user/*/podman/podman.sock ]]; then
+        container_user=root
+    else
+        container_user="$(id -u):$(id -g)"
+    fi
+fi
+opts+=(--user "$container_user")
 
 exec docker compose exec "${opts[@]}" "$SERVICE" "$@"
