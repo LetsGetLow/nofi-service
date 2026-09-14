@@ -81,12 +81,14 @@ anything: `./docker bin/console nofi:push:check`.
 
 ### 4. Build and start
 
+Start the app and its PostgreSQL dependency first. Leave the Messenger workers
+stopped until the database has been migrated.
 ```bash
-docker compose up -d --build
+docker compose up -d --build php
 ```
 
-This starts PostgreSQL, mailpit, the app, and 8 Messenger workers
-(`MESSENGER_NUM_WORKERS` in `.env`).
+This starts PostgreSQL and the app. The development mailpit service and the
+Messenger workers are started in step 7.
 
 The first start also fills `vendor/` and `.phpunit.cache/` in your working
 tree. Both are gitignored, so a fresh clone does not have them, Docker creates
@@ -101,7 +103,13 @@ hand; the first `up` is simply slower than every later one.
 copy has finished. Wait for `php` to report `(healthy)` in `docker compose ps`
 before step 5, or add `--wait` and let Compose wait for you.
 
-### 5. Generate the JWT keypair
+### 5. Run the migrations
+
+```bash
+./docker bin/console doctrine:migrations:migrate
+```
+
+### 6. Generate the JWT keypair
 
 ```bash
 ./docker bin/console lexik:jwt:generate-keypair
@@ -121,13 +129,15 @@ existing key simply keeps whatever mode it already had. The bundle has no
 setting for this. Because `dumpFile` preserves the existing mode, doing it once
 is permanent: later `--overwrite` runs keep `0600`.
 
-### 6. Run the migrations
+### 7. Start mailpit and the Messenger workers
 
 ```bash
-./docker bin/console doctrine:migrations:migrate
+docker compose up -d
 ```
 
-### 7. Create a user
+This starts mailpit and 8 Messenger workers (`MESSENGER_NUM_WORKERS` in `.env`).
+
+### 8. Create a user
 
 The database ships with **no accounts**. Create your own:
 
