@@ -11,7 +11,7 @@ use Nofi\Notification\NotificationChannel;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Nofi\Notification\MailTemplateLocator;
+use Nofi\Notification\Email\MailTemplateLocator;
 use Nofi\Validator\MailTemplateExists;
 use Nofi\Validator\MailTemplateExistsValidator;
 use Symfony\Component\Validator\Constraint;

@@ -8,8 +8,6 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use InvalidArgumentException;
 use Nofi\Entity\Notification;
-use Nofi\Notification\EmailNotificationPayload;
-use Nofi\Notification\MailTemplateLocator;
 use Nofi\Notification\NotificationChannel;
 use Nofi\Notification\NotificationDelivery;
 use Nofi\Notification\NotificationPayload;

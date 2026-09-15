@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Nofi\Tests\Unit\Notification;
+namespace Nofi\Tests\Unit\Notification\Push;
 
 use Nofi\Dto\SendNotificationDto;
-use Nofi\Notification\PushNotificationPayload;
+use Nofi\Notification\Push\PushNotificationPayload;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;

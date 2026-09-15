@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Nofi\Validator;
 
-use Nofi\Notification\MailTemplateLocator;
+use Nofi\Notification\Email\MailTemplateLocator;
 use Override;
 use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\ConstraintValidator;

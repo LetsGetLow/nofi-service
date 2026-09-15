@@ -8,6 +8,8 @@ use Nofi\Dto\SendNotificationDto;
 use Nofi\Message\NotificationMessage;
 use Nofi\Message\SendEmailNotification;
 use Nofi\Message\SendPushNotification;
+use Nofi\Notification\Email\EmailNotificationPayload;
+use Nofi\Notification\Push\PushNotificationPayload;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 /**

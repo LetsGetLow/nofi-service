@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Nofi\Notification;
+namespace Nofi\Notification\Push;
 
 use function preg_match;
 use function str_starts_with;

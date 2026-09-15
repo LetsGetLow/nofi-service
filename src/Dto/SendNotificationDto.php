@@ -6,10 +6,10 @@ namespace Nofi\Dto;
 
 use DateTimeImmutable;
 use Nofi\Dto\AttachmentDto;
-use Nofi\Notification\MailTemplateLocator;
+use Nofi\Notification\Email\MailTemplateLocator;
 use Nofi\Validator\MailTemplateExists;
 use Nofi\Notification\NotificationChannel;
-use Nofi\Notification\PushTopic;
+use Nofi\Notification\Push\PushTopic;
 use ApiPlatform\Metadata\ApiProperty;
 use Symfony\Component\Serializer\Attribute\SerializedName;
 use Symfony\Component\Validator\Constraints as Assert;

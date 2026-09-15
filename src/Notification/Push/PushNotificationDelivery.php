@@ -12,7 +12,6 @@ use Nofi\Notification\NotificationChannel;
 use Nofi\Notification\NotificationDelivery;
 use Nofi\Notification\NotificationPayload;
 use Nofi\Notification\NotificationStatus;
-use Nofi\Notification\PushNotificationPayload;
 use Override;
 use Psr\Log\LoggerInterface;
 use RuntimeException;

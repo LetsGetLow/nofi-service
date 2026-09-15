@@ -6,9 +6,9 @@ namespace Nofi\Tests\Integration;
 
 use Nofi\Entity\Notification;
 use Nofi\Entity\User;
-use Nofi\Notification\EmailAttachment;
-use Nofi\Notification\EmailNotificationPayload;
-use Nofi\Notification\MailTemplateLocator;
+use Nofi\Notification\Email\EmailAttachment;
+use Nofi\Notification\Email\EmailNotificationPayload;
+use Nofi\Notification\Email\MailTemplateLocator;
 use Nofi\Notification\NotificationStatus;
 use Nofi\Notification\Email\EmailNotificationDelivery;
 use Psr\Log\LoggerInterface;

@@ -6,14 +6,14 @@ namespace Nofi\Tests\Unit\Notification\Email;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Nofi\Entity\Notification;
-use Nofi\Notification\EmailAttachment;
-use Nofi\Notification\EmailNotificationPayload;
+use Nofi\Notification\Email\EmailAttachment;
+use Nofi\Notification\Email\EmailNotificationPayload;
 use Nofi\Notification\NotificationStatus;
 use Nofi\Notification\Email\EmailNotificationDelivery;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Nofi\Notification\MailTemplateLocator;
+use Nofi\Notification\Email\MailTemplateLocator;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Symfony\Component\Mailer\MailerInterface;

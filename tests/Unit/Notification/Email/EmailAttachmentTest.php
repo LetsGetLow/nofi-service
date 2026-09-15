@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Nofi\Tests\Unit\Notification;
+namespace Nofi\Tests\Unit\Notification\Email;
 
 use Nofi\Dto\AttachmentDto;
-use Nofi\Notification\EmailAttachment;
+use Nofi\Notification\Email\EmailAttachment;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;

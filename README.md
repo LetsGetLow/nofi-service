@@ -1011,7 +1011,7 @@ the format. Values come from `.env` and its overrides; the YAML under
 | Firewalls, password hashing, access control | `config/packages/security.yaml` | [Security](https://symfony.com/doc/current/security.html) |
 | API resources, OpenAPI output | `config/packages/api_platform.yaml`, `src/ApiResource/` | [API Platform for Symfony](https://api-platform.com/docs/symfony/) |
 | `FIREBASE_CREDENTIALS_FILE` | `config/firebase/credentials.json` | [Service account setup](https://firebase.google.com/docs/admin/setup), [firebase-php messaging](https://firebase-php.readthedocs.io/8.4.0/cloud-messaging.html) |
-| Push targets: `topics` and `tokens` | `src/Notification/PushTopic.php`, `src/Dto/SendNotificationDto.php` | [Topic messaging](https://firebase.google.com/docs/cloud-messaging/topic-messaging) |
+| Push targets: `topics` and `tokens` | `src/Notification/Push/PushTopic.php`, `src/Dto/SendNotificationDto.php` | [Topic messaging](https://firebase.google.com/docs/cloud-messaging/topic-messaging) |
 | `NOFI_LIVE_PUSH_TARGET` — enables the opt-in live push test | environment only, read by `tests/Live/RealPushTest.php` | [Test groups](https://docs.phpunit.de/en/13.0/organizing-tests.html), [attributes](https://docs.phpunit.de/en/13.0/attributes.html) |
 | `SENTRY_DSN` | `config/packages/prod/sentry.yaml` | [Sentry for Symfony](https://docs.sentry.io/platforms/php/guides/symfony/) |
 | Log channels and handlers | `config/packages/{dev,prod}/monolog.yaml` | [Logging](https://symfony.com/doc/current/logging.html) |

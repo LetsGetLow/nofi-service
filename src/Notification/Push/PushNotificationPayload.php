@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Nofi\Notification;
+namespace Nofi\Notification\Push;
 
 use Nofi\Dto\SendNotificationDto;
+use Nofi\Notification\NotificationPayload;
 use InvalidArgumentException;
 use Override;
 

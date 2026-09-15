@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Nofi\Notification\Push;
 
 use Nofi\Entity\Notification;
-use Nofi\Notification\PushTopic;
 use Kreait\Firebase\Contract\Messaging;
 use Kreait\Firebase\Messaging\CloudMessage;
 use Kreait\Firebase\Messaging\Notification as PushNotification;

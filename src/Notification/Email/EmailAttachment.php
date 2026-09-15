@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Nofi\Notification;
+namespace Nofi\Notification\Email;
 
 use Nofi\Dto\AttachmentDto;
 use InvalidArgumentException;

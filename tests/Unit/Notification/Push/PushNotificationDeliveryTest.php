@@ -7,7 +7,7 @@ namespace Nofi\Tests\Unit\Notification\Push;
 use Doctrine\ORM\EntityManagerInterface;
 use Nofi\Entity\Notification;
 use Nofi\Notification\NotificationStatus;
-use Nofi\Notification\PushNotificationPayload;
+use Nofi\Notification\Push\PushNotificationPayload;
 use Nofi\Notification\Push\PushNotificationDelivery;
 use Nofi\Notification\Push\PushService;
 use PHPUnit\Framework\Attributes\Test;

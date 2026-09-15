@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Nofi\Tests\Unit\Validator;
 
-use Nofi\Notification\MailTemplateLocator;
+use Nofi\Notification\Email\MailTemplateLocator;
 use Nofi\Validator\MailTemplateExists;
 use Nofi\Validator\MailTemplateExistsValidator;
 use PHPUnit\Framework\Attributes\Test;

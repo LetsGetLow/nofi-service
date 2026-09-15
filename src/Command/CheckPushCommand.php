@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Nofi\Command;
 
-use Nofi\Notification\PushTopic;
+use Nofi\Notification\Push\PushTopic;
 use Nofi\Notification\Push\PushCredentials;
 use Kreait\Firebase\Contract\Messaging;
 use Override;
