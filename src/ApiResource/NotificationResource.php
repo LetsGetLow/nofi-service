@@ -26,17 +26,18 @@ use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Uid\Uuid;
 
 #[ApiResource(
+    shortName: "Notification",
     operations: [
         new GetCollection(
-            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            uriTemplate: "/",
             provider: NotificationProvider::class,
         ),
         new Get(
-            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            uriTemplate: "/{id}",
             provider: NotificationProvider::class,
         ),
         new Post(
-            uriTemplate: "/notifications/send",
+            uriTemplate: "/send",
             openapi: new OpenApiOperation(
                 summary: "Queues a notification for delivery",
                 description: "Answers 202 with the record that was created, not with the outcome: "
@@ -46,11 +47,10 @@ use Symfony\Component\Uid\Uuid;
             ),
             status: Response::HTTP_ACCEPTED,
             input: SendNotificationDto::class,
-            security: "is_granted('IS_AUTHENTICATED_FULLY')",
             processor: SendNotificationProcessor::class,
         ),
         new Post(
-            uriTemplate: "/notifications/{id}/cancel",
+            uriTemplate: "/{id}/cancel",
             // An action on something that exists, not a submission. Without
             // input: false API Platform deserialises a body that is not there
             // and answers 400; without read: true a POST does not run the
@@ -65,11 +65,11 @@ use Symfony\Component\Uid\Uuid;
                 . "Answers 409 once the send is processing or finished, because a cancellation would then "
                 . "arrive too late to prevent anything. Every recipient still waiting is cancelled with it.",
             ),
-            security: "is_granted('IS_AUTHENTICATED_FULLY')",
             provider: NotificationProvider::class,
             processor: CancelNotificationProcessor::class,
         ),
         new Delete(
+            uriTemplate: "/{id}",
         // The security expression is enforced at runtime but never reaches
         // the OpenAPI document, so a reader of the documentation would meet
         // the 403 and the 409 without warning.
@@ -88,14 +88,11 @@ use Symfony\Component\Uid\Uuid;
             processor: DeleteNotificationProcessor::class,
         ),
     ],
-    routePrefix: "/v1",
-    // Without this the routes are derived from the class name and read
-    // /v1/notification_resources: an internal naming pattern leaking into a
-    // public URL, and a second name for what /notifications/send addresses.
-    shortName: "Notification",
+    routePrefix: "/v1/notifications",
+    normalizationContext: ["groups" => ["notification:read"]],
     // Every property carries this group. Filtering on a group nobody annotated
     // is what made a GET answer with @id and @type and nothing else.
-    normalizationContext: ["groups" => ["notification:read"]],
+    security: "is_granted('IS_AUTHENTICATED_FULLY')",
 )]
 final class NotificationResource
 {

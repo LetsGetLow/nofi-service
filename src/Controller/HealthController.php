@@ -29,7 +29,7 @@ final class HealthController
     ) {
     }
 
-    #[Route("/health", name: "health", methods: ["GET"])]
+    #[Route("/health", name: "health", methods: ["GET"], format: "json")]
     public function __invoke(): JsonResponse
     {
         try {
