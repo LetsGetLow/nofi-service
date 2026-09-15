@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Nofi\Application\Notification;
+namespace Nofi\Notification;
 
 use Nofi\Message\DeleteNotification;
 use Symfony\Component\Messenger\MessageBusInterface;

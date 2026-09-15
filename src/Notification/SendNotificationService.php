@@ -2,13 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Nofi\Application\Notification;
+namespace Nofi\Notification;
 
 use LogicException;
 use Nofi\Dto\SendNotificationDto;
 use Nofi\Entity\Notification;
 use Nofi\Entity\User;
-use Nofi\Notification\NotificationRecorder;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Uid\Uuid;

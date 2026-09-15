@@ -6,7 +6,7 @@ namespace Nofi\Notification\State;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Nofi\Application\Notification\SendNotificationService;
+use Nofi\Notification\SendNotificationService;
 use Nofi\Dto\SendNotificationDto;
 use Nofi\Entity\User;
 use Nofi\ApiResource\NotificationResource;

@@ -7,7 +7,7 @@ namespace Nofi\Notification\State;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Nofi\ApiResource\NotificationResource;
-use Nofi\Application\Notification\DeleteNotificationService;
+use Nofi\Notification\DeleteNotificationService;
 use Override;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 

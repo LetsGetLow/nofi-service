@@ -6,7 +6,7 @@ namespace Nofi\Tests\Unit\State;
 
 use ApiPlatform\Metadata\Post;
 use Doctrine\ORM\EntityManagerInterface;
-use Nofi\Application\Notification\SendNotificationService;
+use Nofi\Notification\SendNotificationService;
 use Nofi\Dto\SendNotificationDto;
 use Nofi\Entity\User;
 use Nofi\Notification\NotificationRecorder;

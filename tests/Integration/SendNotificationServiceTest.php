@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Nofi\Tests\Integration;
 
 use DateTimeImmutable;
-use Nofi\Application\Notification\SendNotificationService;
+use Nofi\Notification\SendNotificationService;
 use Nofi\Dto\SendNotificationDto;
 use Nofi\Entity\Notification;
 use Nofi\Message\SendEmailNotification;
