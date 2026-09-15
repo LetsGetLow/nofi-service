@@ -58,8 +58,11 @@ final class AuthenticationTest extends ApiTestCase
         $user = $this->createUser('alice');
         $token = $this->tokenFor($user);
 
-        // Flip the last character of the signature.
-        $tampered = substr($token, 0, -1) . (str_ends_with($token, 'a') ? 'b' : 'a');
+        // The last base64 character contains unused bits; changing it can
+        // leave the decoded signature intact. Change the first one instead.
+        [$header, $payload, $signature] = explode('.', $token);
+        $signature[0] = $signature[0] === 'a' ? 'b' : 'a';
+        $tampered = $header . '.' . $payload . '.' . $signature;
 
         $this->request('GET', '/api/v1/notifications', $tampered);
 
