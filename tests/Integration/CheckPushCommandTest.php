@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Nofi\Tests\Integration;
 
-use Nofi\Service\Push\PushCredentials;
+use Nofi\Notification\Push\PushCredentials;
 use Kreait\Firebase\Contract\Messaging;
 use Kreait\Firebase\Messaging\Message;
 use Override;

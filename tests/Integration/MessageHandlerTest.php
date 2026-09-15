@@ -14,7 +14,7 @@ use Nofi\MessageHandler\DeleteNotificationHandler;
 use Nofi\MessageHandler\SendNotificationHandler;
 use Nofi\Notification\NotificationChannel;
 use Nofi\Notification\NotificationStatus;
-use Nofi\Service\Push\PushService;
+use Nofi\Notification\Push\PushService;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;
 use RuntimeException;

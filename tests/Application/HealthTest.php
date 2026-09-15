@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Nofi\Tests\Application;
 
 use Doctrine\DBAL\Connection;
-use Nofi\Service\Push\PushCredentials;
+use Nofi\Notification\Push\PushCredentials;
 use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Nofi\Command;
 
 use Nofi\Notification\PushTopic;
-use Nofi\Service\Push\PushCredentials;
+use Nofi\Notification\Push\PushCredentials;
 use Kreait\Firebase\Contract\Messaging;
 use Override;
 use Symfony\Component\Console\Attribute\AsCommand;

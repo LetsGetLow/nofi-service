@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Nofi\Service\Push;
+namespace Nofi\Notification\Push;
 
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 

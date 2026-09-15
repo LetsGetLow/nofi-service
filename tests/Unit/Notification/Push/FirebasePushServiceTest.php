@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Nofi\Tests\Unit\Service\Push;
+namespace Nofi\Tests\Unit\Notification\Push;
 
 use Nofi\Entity\Notification;
-use Nofi\Service\Push\FirebasePushService;
+use Nofi\Notification\Push\FirebasePushService;
 use Kreait\Firebase\Contract\Messaging;
 use Kreait\Firebase\Messaging\Message;
 use PHPUnit\Framework\Attributes\Test;

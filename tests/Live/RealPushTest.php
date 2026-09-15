@@ -6,7 +6,7 @@ namespace Nofi\Tests\Live;
 
 use Nofi\Entity\Notification;
 use Nofi\Notification\PushTopic;
-use Nofi\Service\Push\PushService;
+use Nofi\Notification\Push\PushService;
 use Kreait\Firebase\Contract\Messaging;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;

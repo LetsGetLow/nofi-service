@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Nofi\Service\Push;
+namespace Nofi\Notification\Push;
 
 use Nofi\Entity\Notification;
 use Nofi\Notification\PushTopic;

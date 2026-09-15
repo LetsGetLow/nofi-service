@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Nofi\Tests\Unit\Service\Push;
+namespace Nofi\Tests\Unit\Notification\Push;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Nofi\Entity\Notification;
 use Nofi\Notification\NotificationStatus;
 use Nofi\Notification\PushNotificationPayload;
-use Nofi\Service\Push\PushNotificationDelivery;
-use Nofi\Service\Push\PushService;
+use Nofi\Notification\Push\PushNotificationDelivery;
+use Nofi\Notification\Push\PushService;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;

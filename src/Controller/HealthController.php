@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Nofi\Controller;
 
 use Doctrine\DBAL\Connection;
-use Nofi\Service\Push\PushCredentials;
+use Nofi\Notification\Push\PushCredentials;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
