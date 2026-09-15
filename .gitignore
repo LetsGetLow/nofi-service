@@ -24,3 +24,7 @@
 /config/firebase/*
 !/config/firebase/.gitkeep
 ###< firebase credentials ###
+
+###> MCP config
+/.codex/config.toml
+###< MCP config
