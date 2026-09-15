@@ -24,11 +24,15 @@ services:
             - "./config/jwt:/app/config/jwt:ro,z"
             - "./config/firebase:/app/config/firebase:ro,z"
             - "var_data:/app/var"
+            - "caddy_data:/data"
+            - "caddy_config:/config"
         depends_on:
            database:
              condition: service_healthy # 2. ERZWINGE REIHENFOLGE (Wichtig für Podman-Netzwerke)
         healthcheck:
-           test: ["CMD", "curl", "-fsSkL", "https://localhost:${HTTPS_PORT:-8443}/health"]
+           # Match the site's hostname (including TLS SNI), but always check
+           # this container rather than depending on public DNS or a proxy.
+           test: ["CMD", "curl", "-fsSk", "--noproxy", "*", "--resolve", "${SERVER_NAME:-localhost}:${HTTPS_PORT:-8443}:127.0.0.1", "https://${SERVER_NAME:-localhost}:${HTTPS_PORT:-8443}/health"]
            timeout: 5s
            interval: 10s
            retries: 3
@@ -84,3 +88,5 @@ services:
 volumes:
     database_data:
     var_data:
+    caddy_data:
+    caddy_config:
