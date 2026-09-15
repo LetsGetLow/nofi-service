@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Nofi\Service\Email;
+namespace Nofi\Notification\Email;
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;

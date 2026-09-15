@@ -10,7 +10,7 @@ use Nofi\Notification\EmailAttachment;
 use Nofi\Notification\EmailNotificationPayload;
 use Nofi\Notification\MailTemplateLocator;
 use Nofi\Notification\NotificationStatus;
-use Nofi\Service\Email\EmailNotificationDelivery;
+use Nofi\Notification\Email\EmailNotificationDelivery;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Symfony\Component\Mailer\MailerInterface;

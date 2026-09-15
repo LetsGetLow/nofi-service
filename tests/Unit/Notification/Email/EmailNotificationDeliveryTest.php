@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Nofi\Tests\Unit\Service\Email;
+namespace Nofi\Tests\Unit\Notification\Email;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Nofi\Entity\Notification;
 use Nofi\Notification\EmailAttachment;
 use Nofi\Notification\EmailNotificationPayload;
 use Nofi\Notification\NotificationStatus;
-use Nofi\Service\Email\EmailNotificationDelivery;
+use Nofi\Notification\Email\EmailNotificationDelivery;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
