@@ -28,7 +28,9 @@ use function sprintf;
  */
 final readonly class CancelNotificationProcessor implements ProcessorInterface
 {
-    public function __construct(private EntityManagerInterface $entityManager) {}
+    public function __construct(private EntityManagerInterface $entityManager)
+    {
+    }
 
     #[Override]
     public function process(

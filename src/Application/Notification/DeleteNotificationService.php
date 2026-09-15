@@ -9,7 +9,9 @@ use Symfony\Component\Messenger\MessageBusInterface;
 
 final readonly class DeleteNotificationService
 {
-    public function __construct(private MessageBusInterface $messageBus) {}
+    public function __construct(private MessageBusInterface $messageBus)
+    {
+    }
 
     public function delete(string $notificationId): void
     {

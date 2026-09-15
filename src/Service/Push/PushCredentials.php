@@ -26,7 +26,8 @@ readonly class PushCredentials
         private string $path,
         #[Autowire("%kernel.project_dir%")]
         private string $projectDir,
-    ) {}
+    ) {
+    }
 
     public function isConfigured(): bool
     {

@@ -12,10 +12,11 @@ use Symfony\Component\Messenger\Attribute\AsMessage;
 class SendEmailNotification implements NotificationMessage
 {
     public function __construct(
-        private string              $notificationId,
+        private string $notificationId,
         private SendNotificationDto $notificationDto,
-        private string              $userId,
-    ) {}
+        private string $userId,
+    ) {
+    }
 
     #[Override]
     public function getNotificationId(): string

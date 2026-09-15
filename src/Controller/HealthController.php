@@ -26,7 +26,8 @@ final class HealthController
         private readonly Connection $connection,
         private readonly LoggerInterface $logger,
         private readonly PushCredentials $pushCredentials,
-    ) {}
+    ) {
+    }
 
     #[Route("/health", name: "health", methods: ["GET"])]
     public function __invoke(): JsonResponse

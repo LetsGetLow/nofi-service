@@ -153,7 +153,9 @@ final class EmailNotificationDeliveryTest extends TestCase
         $sent = null;
         $mailer = $this->createStub(MailerInterface::class);
         $mailer->method('send')->willReturnCallback(
-            static function (RawMessage $message) use (&$sent): void { $sent = $message; },
+            static function (RawMessage $message) use (&$sent): void {
+                $sent = $message;
+            },
         );
 
         $payload = new EmailNotificationPayload(
@@ -186,7 +188,9 @@ final class EmailNotificationDeliveryTest extends TestCase
         $sent = null;
         $mailer = $this->createStub(MailerInterface::class);
         $mailer->method('send')->willReturnCallback(
-            static function (RawMessage $message) use (&$sent): void { $sent = $message; },
+            static function (RawMessage $message) use (&$sent): void {
+                $sent = $message;
+            },
         );
 
         $payload = new EmailNotificationPayload(
@@ -217,7 +221,9 @@ final class EmailNotificationDeliveryTest extends TestCase
         $sent = null;
         $mailer = $this->createStub(MailerInterface::class);
         $mailer->method('send')->willReturnCallback(
-            static function (RawMessage $message) use (&$sent): void { $sent = $message; },
+            static function (RawMessage $message) use (&$sent): void {
+                $sent = $message;
+            },
         );
 
         $payload = new EmailNotificationPayload(
@@ -246,7 +252,9 @@ final class EmailNotificationDeliveryTest extends TestCase
         $sent = null;
         $mailer = $this->createStub(MailerInterface::class);
         $mailer->method('send')->willReturnCallback(
-            static function (RawMessage $m) use (&$sent): void { $sent = $m; },
+            static function (RawMessage $m) use (&$sent): void {
+                $sent = $m;
+            },
         );
 
         $this->deliveryWith($mailer)->deliver($notification, $this->payload());
@@ -261,7 +269,9 @@ final class EmailNotificationDeliveryTest extends TestCase
         $sent = null;
         $mailer = $this->createStub(MailerInterface::class);
         $mailer->method('send')->willReturnCallback(
-            static function (RawMessage $m) use (&$sent): void { $sent = $m; },
+            static function (RawMessage $m) use (&$sent): void {
+                $sent = $m;
+            },
         );
 
         $payload = new EmailNotificationPayload(

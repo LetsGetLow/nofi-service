@@ -748,6 +748,13 @@ safely refresh, it says so in `docker compose logs php` instead of guessing.
 ./docker vendor/bin/phpunit --filter FirebasePushService
 ```
 
+Check or automatically format PHP with the shared PSR-12 ruleset:
+
+```bash
+./docker composer cs
+./docker composer cs:fix
+```
+
 Everything in `tests/` runs without credentials, without network and without a
 device: the Firebase client is replaced at the `Messaging` contract, so
 `tests/Application/PushDeliveryTest.php` can send a request over HTTP, consume
@@ -936,7 +943,7 @@ twice.
 | `phpunit` | the suite, on SQLite, exactly as it runs locally |
 | `psalm` | `errorLevel="6"` over `src/`, which was reporting 57 findings the day it was installed |
 | `audit` | `composer audit`, blocking. It found 36 production advisories once, including a firewall bypass |
-| `lint` | `composer validate`, YAML, Twig, and `lint:container` — which resolves every service, so a wiring mistake no test touches fails here |
+| `lint` | PHP_CodeSniffer (PSR-12), `composer validate`, YAML, Twig, and `lint:container` — which resolves every service, so a wiring mistake no test touches fails here |
 | `migrations` | the gap the suite cannot cover: see below |
 
 `tests/Live` never runs there. It is excluded twice over — the `live` group in

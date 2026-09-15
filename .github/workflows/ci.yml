@@ -195,6 +195,7 @@ jobs:
           rm -rf vendor && cp -a /app/vendor vendor
           mkdir -p var .phpunit.cache
       - run: composer validate --no-check-publish
+      - run: composer cs
       - run: bin/console lint:yaml config
       - run: bin/console lint:twig templates
       # Resolves every service and argument, which the test suite does not: a

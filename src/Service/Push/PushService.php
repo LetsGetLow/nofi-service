@@ -10,7 +10,7 @@ interface PushService
 {
     /**
      * Send push notifications to all recipients of a notification.
-     * 
+     *
      * @param Notification $notification
      * @param array<int, string> $deviceTokens
      * @param string $title

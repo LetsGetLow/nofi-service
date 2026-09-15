@@ -18,7 +18,9 @@ use function sprintf;
  */
 final readonly class DeleteNotificationProcessor implements ProcessorInterface
 {
-    public function __construct(private DeleteNotificationService $service) {}
+    public function __construct(private DeleteNotificationService $service)
+    {
+    }
 
     #[Override]
     public function process(

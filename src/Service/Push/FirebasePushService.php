@@ -16,7 +16,8 @@ readonly class FirebasePushService implements PushService
 {
     public function __construct(
         private Messaging $messaging,
-    ) {}
+    ) {
+    }
 
     #[Override]
     public function send(

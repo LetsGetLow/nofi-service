@@ -206,5 +206,4 @@ final class NotificationResource
 
         return $resource;
     }
-
 }

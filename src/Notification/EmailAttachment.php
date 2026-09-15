@@ -23,7 +23,8 @@ final readonly class EmailAttachment
         public string $contentType,
         public string $content,
         public ?string $contentId = null,
-    ) {}
+    ) {
+    }
 
     /**
      * Inline parts are embedded in the HTML body and referenced there as

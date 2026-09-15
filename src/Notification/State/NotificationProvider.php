@@ -26,7 +26,8 @@ final readonly class NotificationProvider implements ProviderInterface
         private NotificationRepository $repository,
         private Security $security,
         private Pagination $pagination,
-    ) {}
+    ) {
+    }
 
     #[Override]
     public function provide(
@@ -71,5 +72,4 @@ final readonly class NotificationProvider implements ProviderInterface
             $this->repository->countOwnedBy($owner),
         );
     }
-
 }

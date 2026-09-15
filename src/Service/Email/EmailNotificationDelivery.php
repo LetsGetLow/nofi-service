@@ -28,7 +28,8 @@ readonly class EmailNotificationDelivery implements NotificationDelivery
         private MailerInterface $mailer,
         private LoggerInterface $logger,
         private MailTemplateLocator $templates,
-    ) {}
+    ) {
+    }
 
     #[Override]
     public function channel(): NotificationChannel

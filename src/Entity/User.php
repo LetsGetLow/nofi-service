@@ -129,5 +129,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     }
 
     #[Override]
-    public function eraseCredentials(): void {}
+    public function eraseCredentials(): void
+    {
+    }
 }

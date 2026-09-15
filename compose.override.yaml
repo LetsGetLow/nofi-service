@@ -10,6 +10,7 @@ services:
       - "./.env.test:/app/.env.test:ro,z"
       - "./phpunit.dist.xml:/app/phpunit.dist.xml:ro,z"
       - "./psalm.xml:/app/psalm.xml:ro,z"
+      - "./phpcs.xml.dist:/app/phpcs.xml.dist:ro,z"
       # BESCHREIBBAR: Wichtig für den PHPUnit-Cache
       - "./.phpunit.cache:/app/.phpunit.cache:Z"
       - "./src:/app/src:z"
@@ -19,6 +20,7 @@ services:
       - "./templates:/app/templates:z"
       - "./public:/app/public:Z"
       - "./migrations:/app/migrations:z"
+      - "./tests:/app/tests:z"
       - "./bin:/app/bin:z"
       # BESCHREIBBAR: Hier lag der Hauptfehler beim Seeding
       - "./vendor:/app/vendor:z"

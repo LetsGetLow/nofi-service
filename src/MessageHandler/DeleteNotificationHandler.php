@@ -12,7 +12,9 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 #[AsMessageHandler]
 final readonly class DeleteNotificationHandler
 {
-    public function __construct(private EntityManagerInterface $entityManager) {}
+    public function __construct(private EntityManagerInterface $entityManager)
+    {
+    }
 
     public function __invoke(DeleteNotification $message): void
     {

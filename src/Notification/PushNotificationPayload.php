@@ -15,7 +15,8 @@ final readonly class PushNotificationPayload implements NotificationPayload
         public string $message,
         public ?string $icon = null,
         public array $data = [],
-    ) {}
+    ) {
+    }
 
     public static function fromDto(SendNotificationDto $dto): self
     {

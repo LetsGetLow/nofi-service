@@ -23,7 +23,8 @@ readonly class PushNotificationDelivery implements NotificationDelivery
         private PushService $pushService,
         private EntityManagerInterface $entityManager,
         private LoggerInterface $logger,
-    ) {}
+    ) {
+    }
 
     #[Override]
     public function channel(): NotificationChannel

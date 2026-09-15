@@ -105,7 +105,9 @@ final class NotificationRecorderTest extends TestCase
         $entityManager->method('getReference')->willReturn(new User()->setUsername('owner'));
         $persisted = null;
         $entityManager->method('persist')->willReturnCallback(
-            static function (object $entity) use (&$persisted): void { $persisted = $entity; },
+            static function (object $entity) use (&$persisted): void {
+                $persisted = $entity;
+            },
         );
 
         $dto = new SendNotificationDto();

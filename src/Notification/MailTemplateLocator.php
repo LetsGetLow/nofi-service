@@ -23,7 +23,9 @@ final readonly class MailTemplateLocator
      */
     public const string NAME_PATTERN = '/^[A-Za-z0-9_-]++$/';
 
-    public function __construct(private Environment $twig) {}
+    public function __construct(private Environment $twig)
+    {
+    }
 
     public static function isValidName(string $name): bool
     {

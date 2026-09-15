@@ -23,7 +23,8 @@ final readonly class NotificationDeliveries
     public function __construct(
         #[AutowireIterator("nofi.notification_delivery")]
         private iterable $deliveries,
-    ) {}
+    ) {
+    }
 
     public function for(NotificationChannel $channel): NotificationDelivery
     {

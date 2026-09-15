@@ -31,7 +31,9 @@ final readonly class RequireJwtInTheDocumentation implements OpenApiFactoryInter
      */
     private const string SCHEME = "JWT";
 
-    public function __construct(private OpenApiFactoryInterface $decorated) {}
+    public function __construct(private OpenApiFactoryInterface $decorated)
+    {
+    }
 
     #[Override]
     public function __invoke(array $context = []): OpenApi

@@ -29,7 +29,8 @@ final readonly class SendNotificationHandler
         private NotificationRepository $notificationRepository,
         private NotificationDeliveries $deliveries,
         private LoggerInterface $logger,
-    ) {}
+    ) {
+    }
 
     public function __invoke(NotificationMessage $message): void
     {

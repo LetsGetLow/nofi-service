@@ -16,7 +16,9 @@ use Symfony\Component\Validator\Exception\UnexpectedTypeException;
  */
 final class MailTemplateExistsValidator extends ConstraintValidator
 {
-    public function __construct(private readonly MailTemplateLocator $locator) {}
+    public function __construct(private readonly MailTemplateLocator $locator)
+    {
+    }
 
     #[Override]
     public function validate(mixed $value, Constraint $constraint): void

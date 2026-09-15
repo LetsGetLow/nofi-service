@@ -20,7 +20,8 @@ final readonly class SendNotificationService
     public function __construct(
         private MessageBusInterface $messageBus,
         private NotificationRecorder $recorder,
-    ) {}
+    ) {
+    }
 
     /**
      * Returns what was recorded rather than only its id, so a caller can

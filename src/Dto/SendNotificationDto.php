@@ -259,7 +259,7 @@ final class SendNotificationDto
                 ->addViolation();
         }
 
-        
+
         $this->validateAttachmentSize($context);
         $this->validateInlineAttachmentsAreReferenced($context);
 

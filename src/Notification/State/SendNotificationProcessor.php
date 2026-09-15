@@ -21,7 +21,9 @@ use Symfony\Component\Security\Core\Exception\AuthenticationCredentialsNotFoundE
  */
 final readonly class SendNotificationProcessor implements ProcessorInterface
 {
-    public function __construct(private SendNotificationService $service, private Security $security) {}
+    public function __construct(private SendNotificationService $service, private Security $security)
+    {
+    }
 
     #[Override]
     public function process(

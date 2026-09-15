@@ -21,7 +21,8 @@ final readonly class EmailNotificationPayload implements NotificationPayload
         public ?string $template,
         public array $attachments = [],
         public array $data = [],
-    ) {}
+    ) {
+    }
 
     public static function fromDto(SendNotificationDto $dto): self
     {

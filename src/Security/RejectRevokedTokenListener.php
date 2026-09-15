@@ -17,7 +17,9 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 #[AsEventListener(event: Events::JWT_DECODED)]
 final readonly class RejectRevokedTokenListener
 {
-    public function __construct(private UserRepository $users) {}
+    public function __construct(private UserRepository $users)
+    {
+    }
 
     public function __invoke(JWTDecodedEvent $event): void
     {

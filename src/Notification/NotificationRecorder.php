@@ -12,7 +12,9 @@ use Nofi\Message\NotificationMessage;
 
 readonly class NotificationRecorder
 {
-    public function __construct(private EntityManagerInterface $entityManager) {}
+    public function __construct(private EntityManagerInterface $entityManager)
+    {
+    }
 
     public function record(NotificationMessage $message, NotificationPayload $payload): Notification
     {
