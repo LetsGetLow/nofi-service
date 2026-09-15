@@ -40,9 +40,9 @@ use Symfony\Component\Uid\Uuid;
             openapi: new OpenApiOperation(
                 summary: "Queues a notification for delivery",
                 description: "Answers 202 with the record that was created, not with the outcome: "
-                    . "delivery happens in a worker afterwards, and each target reports back under "
-                    . "recipients. What is accepted here is what goes out — the request is carried "
-                    . "in the queued message, so it cannot be edited later.",
+                . "delivery happens in a worker afterwards, and each target reports back under "
+                . "recipients. What is accepted here is what goes out — the request is carried "
+                . "in the queued message, so it cannot be edited later.",
             ),
             status: Response::HTTP_ACCEPTED,
             input: SendNotificationDto::class,
@@ -62,26 +62,26 @@ use Symfony\Component\Uid\Uuid;
             openapi: new OpenApiOperation(
                 summary: "Stops a send that has not gone out yet",
                 description: "Keeps the notification as a record of the decision, unlike DELETE which removes it. "
-                    . "Answers 409 once the send is processing or finished, because a cancellation would then "
-                    . "arrive too late to prevent anything. Every recipient still waiting is cancelled with it.",
+                . "Answers 409 once the send is processing or finished, because a cancellation would then "
+                . "arrive too late to prevent anything. Every recipient still waiting is cancelled with it.",
             ),
             security: "is_granted('IS_AUTHENTICATED_FULLY')",
             provider: NotificationProvider::class,
             processor: CancelNotificationProcessor::class,
         ),
         new Delete(
-            // The security expression is enforced at runtime but never reaches
-            // the OpenAPI document, so a reader of the documentation would meet
-            // the 403 and the 409 without warning.
+        // The security expression is enforced at runtime but never reaches
+        // the OpenAPI document, so a reader of the documentation would meet
+        // the 403 and the 409 without warning.
             openapi: new OpenApiOperation(
                 summary: "Removes a notification that has not gone out yet",
                 description: "Requires ROLE_ADMIN, and removes the record along with its recipients. "
-                    . "To stop a send but keep the record, use POST /notifications/{id}/cancel "
-                    . "instead. Only a notification that is still waiting can be removed: one that "
-                    . "is already being delivered, or is finished, is kept as the record of what "
-                    . "went out and the call is answered with 409 Conflict. That is the same rule "
-                    . "cancelling applies — a send a worker has picked up cannot be stopped either "
-                    . "way.",
+                . "To stop a send but keep the record, use POST /notifications/{id}/cancel "
+                . "instead. Only a notification that is still waiting can be removed: one that "
+                . "is already being delivered, or is finished, is kept as the record of what "
+                . "went out and the call is answered with 409 Conflict. That is the same rule "
+                . "cancelling applies — a send a worker has picked up cannot be stopped either "
+                . "way.",
             ),
             security: "is_granted('ROLE_ADMIN')",
             provider: NotificationProvider::class,
