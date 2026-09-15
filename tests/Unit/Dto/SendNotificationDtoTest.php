@@ -210,25 +210,6 @@ final class SendNotificationDtoTest extends TestCase
     }
 
     #[Test]
-    public function everyTopicBecomesAPrefixedDeliveryTargetAfterTheRecipients(): void
-    {
-        $dto = $this->pushDto();
-        $dto->tokens = ['device-token-1'];
-        $dto->topics = ['test_notif_all', 'test_notif_android_device'];
-
-        // The prefix is what the delivery recognises a topic by, and it is
-        // added here rather than being asked of the caller.
-        self::assertSame(
-            [
-                'device-token-1',
-                '/topics/test_notif_all',
-                '/topics/test_notif_android_device',
-            ],
-            $dto->deliveryTargets(),
-        );
-    }
-
-    #[Test]
     public function aChannelIsRequired(): void
     {
         $dto = $this->emailDto();

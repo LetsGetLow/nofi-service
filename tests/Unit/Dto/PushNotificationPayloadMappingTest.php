@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Nofi\Tests\Unit\Notification\Push;
+namespace Nofi\Tests\Unit\Dto;
 
+use Nofi\Dto\NotificationRequestMapper;
 use Nofi\Dto\SendNotificationDto;
 use Nofi\Notification\Push\PushNotificationPayload;
 use InvalidArgumentException;
@@ -11,11 +12,11 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
-#[TestDox("PushNotificationPayload behavior")]
-final class PushNotificationPayloadTest extends TestCase
+#[TestDox("PushNotificationPayload mapping")]
+final class PushNotificationPayloadMappingTest extends TestCase
 {
     #[Test]
-    public function fromDtoBuildsAnExplicitPayloadObject(): void
+    public function mappingBuildsAnExplicitPayloadObject(): void
     {
         $dto = new SendNotificationDto();
         $dto->title = "Welcome";
@@ -23,7 +24,7 @@ final class PushNotificationPayloadTest extends TestCase
         $dto->icon = "https://example.com/icon.png";
         $dto->data = ["url" => "https://example.com"];
 
-        $payload = PushNotificationPayload::fromDto($dto);
+        $payload = new NotificationRequestMapper()->pushPayload($dto);
 
         self::assertInstanceOf(PushNotificationPayload::class, $payload);
         self::assertSame("Welcome", $payload->title);
@@ -33,21 +34,21 @@ final class PushNotificationPayloadTest extends TestCase
     }
 
     #[Test]
-    public function fromDtoRejectsIncompletePayloads(): void
+    public function mappingRejectsIncompletePayloads(): void
     {
         $this->expectException(InvalidArgumentException::class);
 
-        PushNotificationPayload::fromDto(new SendNotificationDto());
+        new NotificationRequestMapper()->pushPayload(new SendNotificationDto());
     }
 
     #[Test]
-    public function fromDtoHandlesOptionalIcon(): void
+    public function mappingHandlesOptionalIcon(): void
     {
         $dto = new SendNotificationDto();
         $dto->title = "Welcome";
         $dto->message = "Hi there";
 
-        $payload = PushNotificationPayload::fromDto($dto);
+        $payload = new NotificationRequestMapper()->pushPayload($dto);
 
         self::assertNull($payload->icon);
         self::assertSame([], $payload->data);

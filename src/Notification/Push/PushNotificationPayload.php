@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Nofi\Notification\Push;
 
-use Nofi\Dto\SendNotificationDto;
 use Nofi\Notification\NotificationPayload;
-use InvalidArgumentException;
+use Nofi\Notification\NotificationChannel;
 use Override;
 
 final readonly class PushNotificationPayload implements NotificationPayload
@@ -19,18 +18,10 @@ final readonly class PushNotificationPayload implements NotificationPayload
     ) {
     }
 
-    public static function fromDto(SendNotificationDto $dto): self
+    #[Override]
+    public function channel(): NotificationChannel
     {
-        if ($dto->title === null || $dto->message === null) {
-            throw new InvalidArgumentException("Push payload is incomplete.");
-        }
-
-        return new self(
-            $dto->title,
-            $dto->message,
-            $dto->icon,
-            $dto->data,
-        );
+        return NotificationChannel::PUSH;
     }
 
     #[Override]

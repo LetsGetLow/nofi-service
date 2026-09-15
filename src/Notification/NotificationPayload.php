@@ -14,6 +14,8 @@ namespace Nofi\Notification;
  */
 interface NotificationPayload
 {
+    public function channel(): NotificationChannel;
+
     /**
      * The payload as it is stored on the notification.
      *

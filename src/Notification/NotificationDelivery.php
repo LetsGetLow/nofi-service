@@ -25,12 +25,8 @@ interface NotificationDelivery
     public function channel(): NotificationChannel;
 
     /**
-     * The payload is typed as the interface rather than the channel's own
-     * class because PHP requires a parameter type to be contravariant: an
-     * implementation cannot narrow it. Each one asserts what it needs instead,
-     * the way a Symfony ConstraintValidator does — and the pairing is safe by
-     * construction, because the payload and the delivery are chosen from the
-     * same NotificationChannel.
+     * Implementations check the concrete payload type. The worker selects the
+     * delivery using the payload's channel after checking the stored channel.
      */
     public function deliver(Notification $notification, NotificationPayload $payload): void;
 }

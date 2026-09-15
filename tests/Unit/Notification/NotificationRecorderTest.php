@@ -6,14 +6,12 @@ namespace Nofi\Tests\Unit\Notification;
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use Nofi\Dto\SendNotificationDto;
 use Nofi\Entity\User;
-use Nofi\Message\SendEmailNotification;
-use Nofi\Message\SendPushNotification;
 use Nofi\Notification\Email\EmailAttachment;
 use Nofi\Notification\Email\EmailNotificationPayload;
 use Nofi\Notification\NotificationChannel;
 use Nofi\Notification\NotificationRecorder;
+use Nofi\Notification\NotificationRequest;
 use Nofi\Notification\NotificationStatus;
 use Nofi\Notification\Push\PushNotificationPayload;
 use PHPUnit\Framework\Attributes\Test;
@@ -26,15 +24,8 @@ final class NotificationRecorderTest extends TestCase
     #[Test]
     public function recordsEmailNotificationWithEmailPayload(): void
     {
-        $dto = new SendNotificationDto();
-        $dto->channel = NotificationChannel::EMAIL;
-        $dto->sender = 'noreply@example.com';
-        $dto->subject = 'Hello';
-        $dto->message = 'Hi there';
-        $dto->recipients = ['alice@example.com'];
-
-        $message = new SendEmailNotification('notif-1', $dto, 'user-1');
-        $payload = EmailNotificationPayload::fromDto($dto);
+        $payload = new EmailNotificationPayload('noreply@example.com', 'Hello', 'Hi there', null);
+        $request = new NotificationRequest($payload, ['alice@example.com'], new DateTimeImmutable('+1 hour'));
 
         $entityManager = $this->createMock(EntityManagerInterface::class);
         $user = new User()->setUsername('owner');
@@ -51,8 +42,14 @@ final class NotificationRecorderTest extends TestCase
             ->method('flush');
 
         $recorder = new NotificationRecorder($entityManager);
-        $notification = $recorder->record($message, $payload);
+        $notification = $recorder->record('notif-1', 'user-1', $request);
 
+        self::assertSame($request->scheduledAt, $notification->getScheduledAt());
+        self::assertSame($user, $notification->getCreatedBy());
+        self::assertSame(['alice@example.com'], array_map(
+            static fn ($recipient) => $recipient->getRecipient(),
+            $notification->getRecipients()->toArray(),
+        ));
         self::assertSame('notif-1', $notification->getId());
         self::assertSame(NotificationChannel::EMAIL, $notification->getChannel());
         self::assertSame(NotificationStatus::QUEUED, $notification->getStatus());
@@ -63,15 +60,8 @@ final class NotificationRecorderTest extends TestCase
     #[Test]
     public function recordsPushNotificationWithPushPayload(): void
     {
-        $dto = new SendNotificationDto();
-        $dto->channel = NotificationChannel::PUSH;
-        $dto->title = 'Welcome';
-        $dto->message = 'Hi there';
-        $dto->data = ['url' => 'https://example.com'];
-        $dto->tokens = ['device-token-1'];
-
-        $message = new SendPushNotification('notif-2', $dto, 'user-1');
-        $payload = PushNotificationPayload::fromDto($dto);
+        $payload = new PushNotificationPayload('Welcome', 'Hi there', data: ['url' => 'https://example.com']);
+        $request = new NotificationRequest($payload, ['device-token-1', '/topics/news']);
 
         $entityManager = $this->createMock(EntityManagerInterface::class);
         $user = new User()->setUsername('owner');
@@ -88,7 +78,7 @@ final class NotificationRecorderTest extends TestCase
             ->method('flush');
 
         $recorder = new NotificationRecorder($entityManager);
-        $notification = $recorder->record($message, $payload);
+        $notification = $recorder->record('notif-2', 'user-1', $request);
 
         self::assertSame('notif-2', $notification->getId());
         self::assertSame(NotificationChannel::PUSH, $notification->getChannel());
@@ -110,13 +100,6 @@ final class NotificationRecorderTest extends TestCase
             },
         );
 
-        $dto = new SendNotificationDto();
-        $dto->channel = NotificationChannel::EMAIL;
-        $dto->sender = 'noreply@example.com';
-        $dto->subject = 'Invoice';
-        $dto->message = 'body';
-        $dto->recipients = ['ops@example.com'];
-
         $payload = new EmailNotificationPayload(
             'noreply@example.com',
             'Invoice',
@@ -125,8 +108,8 @@ final class NotificationRecorderTest extends TestCase
             [new EmailAttachment('invoice.pdf', 'application/pdf', 'pdf-bytes', 'inv')],
         );
 
-        $message = new SendEmailNotification('notif-1', $dto, 'user-1');
-        new NotificationRecorder($entityManager)->record($message, $payload);
+        $request = new NotificationRequest($payload, ['ops@example.com']);
+        new NotificationRecorder($entityManager)->record('notif-1', 'user-1', $request);
 
         $stored = $persisted->getPayload()['attachments'];
         self::assertSame([[

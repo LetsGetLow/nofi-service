@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Nofi\Tests\Integration;
 
 use DateTimeImmutable;
-use Nofi\Dto\SendNotificationDto;
+use Nofi\Notification\Email\EmailNotificationPayload;
+use Nofi\Notification\Push\PushNotificationPayload;
 use Nofi\Entity\Notification;
 use Nofi\Message\DeleteNotification;
 use Nofi\Message\SendEmailNotification;
@@ -37,7 +38,7 @@ final class MessageHandlerTest extends IntegrationTestCase
 
         // No exception: retrying cannot bring the row back, so raising here
         // would only burn the retry budget and land in the failed transport.
-        $handler(new SendEmailNotification('gone', $this->emailDto(), 'user-1'));
+        $handler(new SendEmailNotification('gone', $this->emailPayload()));
 
         self::assertSame([], $this->sentEmails());
     }
@@ -50,7 +51,7 @@ final class MessageHandlerTest extends IntegrationTestCase
         self::getContainer()->set(PushService::class, $pushService);
 
         $handler = self::service(SendNotificationHandler::class);
-        $handler(new SendPushNotification('gone', $this->pushDto(), 'user-1'));
+        $handler(new SendPushNotification('gone', $this->pushPayload()));
     }
 
     #[Test]
@@ -66,7 +67,7 @@ final class MessageHandlerTest extends IntegrationTestCase
 
         try {
             self::service(SendNotificationHandler::class)(
-                new SendPushNotification($notification->getId(), $this->pushDto(), 'user-1'),
+                new SendPushNotification($notification->getId(), $this->pushPayload()),
             );
             self::fail('Expected the rejected token to raise.');
         } catch (RuntimeException $e) {
@@ -138,27 +139,14 @@ final class MessageHandlerTest extends IntegrationTestCase
         return $notification;
     }
 
-    private function emailDto(): SendNotificationDto
+    private function emailPayload(): EmailNotificationPayload
     {
-        $dto = new SendNotificationDto();
-        $dto->channel = NotificationChannel::EMAIL;
-        $dto->sender = 'noreply@example.com';
-        $dto->subject = 'Subject';
-        $dto->message = 'body';
-        $dto->recipients = ['ops@example.com'];
-
-        return $dto;
+        return new EmailNotificationPayload('noreply@example.com', 'Subject', 'body', null);
     }
 
-    private function pushDto(): SendNotificationDto
+    private function pushPayload(): PushNotificationPayload
     {
-        $dto = new SendNotificationDto();
-        $dto->channel = NotificationChannel::PUSH;
-        $dto->title = 'Title';
-        $dto->message = 'body';
-        $dto->tokens = ['device-token-1'];
-
-        return $dto;
+        return new PushNotificationPayload('Title', 'body');
     }
 
     /**

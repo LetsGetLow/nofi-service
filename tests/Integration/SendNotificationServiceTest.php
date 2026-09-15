@@ -6,7 +6,10 @@ namespace Nofi\Tests\Integration;
 
 use DateTimeImmutable;
 use Nofi\Notification\SendNotificationService;
-use Nofi\Dto\SendNotificationDto;
+use Nofi\Notification\NotificationRequest;
+use Nofi\Notification\Email\EmailAttachment;
+use Nofi\Notification\Email\EmailNotificationPayload;
+use Nofi\Notification\Push\PushNotificationPayload;
 use Nofi\Entity\Notification;
 use Nofi\Message\SendEmailNotification;
 use Nofi\Message\SendPushNotification;
@@ -28,7 +31,7 @@ final class SendNotificationServiceTest extends IntegrationTestCase
     {
         $user = $this->createUser('alice');
 
-        $id = self::service(SendNotificationService::class)->send($user, $this->emailDto())->getId();
+        $id = self::service(SendNotificationService::class)->send($user->getId(), $this->emailRequest())->getId();
 
         $notification = self::entityManager()->find(Notification::class, $id);
         self::assertNotNull($notification);
@@ -48,13 +51,12 @@ final class SendNotificationServiceTest extends IntegrationTestCase
     {
         $user = $this->createUser('alice');
 
-        $dto = new SendNotificationDto();
-        $dto->channel = NotificationChannel::PUSH;
-        $dto->title = 'Deployment finished';
-        $dto->message = 'Build 42 is live';
-        $dto->recipients = ['device-token-1'];
+        $request = new NotificationRequest(
+            new PushNotificationPayload('Deployment finished', 'Build 42 is live'),
+            ['device-token-1'],
+        );
 
-        self::service(SendNotificationService::class)->send($user, $dto);
+        self::service(SendNotificationService::class)->send($user->getId(), $request);
 
         self::assertInstanceOf(
             SendPushNotification::class,
@@ -66,10 +68,9 @@ final class SendNotificationServiceTest extends IntegrationTestCase
     public function aFutureScheduleIsDispatchedWithADelay(): void
     {
         $user = $this->createUser('alice');
-        $dto = $this->emailDto();
-        $dto->scheduledAt = new DateTimeImmutable('+1 hour');
+        $request = $this->emailRequest(new DateTimeImmutable('+1 hour'));
 
-        self::service(SendNotificationService::class)->send($user, $dto);
+        self::service(SendNotificationService::class)->send($user->getId(), $request);
 
         $stamps = $this->transport()->getSent()[0]->all(DelayStamp::class);
         self::assertCount(1, $stamps);
@@ -83,10 +84,9 @@ final class SendNotificationServiceTest extends IntegrationTestCase
     public function aScheduleInThePastIsDispatchedImmediately(): void
     {
         $user = $this->createUser('alice');
-        $dto = $this->emailDto();
-        $dto->scheduledAt = new DateTimeImmutable('-1 hour');
+        $request = $this->emailRequest(new DateTimeImmutable('-1 hour'));
 
-        self::service(SendNotificationService::class)->send($user, $dto);
+        self::service(SendNotificationService::class)->send($user->getId(), $request);
 
         self::assertSame([], $this->transport()->getSent()[0]->all(DelayStamp::class));
     }
@@ -95,14 +95,14 @@ final class SendNotificationServiceTest extends IntegrationTestCase
     public function attachmentsAreRecordedAsMetadataOnly(): void
     {
         $user = $this->createUser('alice');
-        $dto = $this->emailDto();
-        $attachment = new \Nofi\Dto\AttachmentDto();
-        $attachment->filename = 'invoice.pdf';
-        $attachment->contentType = 'application/pdf';
-        $attachment->content = base64_encode('pdf-bytes');
-        $dto->attachments = [$attachment];
+        $request = new NotificationRequest(
+            new EmailNotificationPayload('noreply@example.com', 'Invoice', 'body', null, [
+                new EmailAttachment('invoice.pdf', 'application/pdf', 'pdf-bytes'),
+            ]),
+            ['ops@example.com'],
+        );
 
-        $id = self::service(SendNotificationService::class)->send($user, $dto)->getId();
+        $id = self::service(SendNotificationService::class)->send($user->getId(), $request)->getId();
 
         $payload = self::entityManager()->find(Notification::class, $id)->getPayload();
         self::assertSame(
@@ -116,16 +116,13 @@ final class SendNotificationServiceTest extends IntegrationTestCase
         );
     }
 
-    private function emailDto(): SendNotificationDto
+    private function emailRequest(?DateTimeImmutable $scheduledAt = null): NotificationRequest
     {
-        $dto = new SendNotificationDto();
-        $dto->channel = NotificationChannel::EMAIL;
-        $dto->sender = 'noreply@example.com';
-        $dto->subject = 'Deployment finished';
-        $dto->message = '<p>Build 42 is live</p>';
-        $dto->recipients = ['ops@example.com', 'dev@example.com'];
-
-        return $dto;
+        return new NotificationRequest(
+            new EmailNotificationPayload('noreply@example.com', 'Deployment finished', '<p>Build 42 is live</p>', null),
+            ['ops@example.com', 'dev@example.com'],
+            $scheduledAt,
+        );
     }
 
     private function transport(): InMemoryTransport

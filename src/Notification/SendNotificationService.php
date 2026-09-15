@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Nofi\Notification;
 
 use LogicException;
-use Nofi\Dto\SendNotificationDto;
+use Nofi\Message\SendEmailNotification;
+use Nofi\Message\SendPushNotification;
+use Nofi\Notification\Email\EmailNotificationPayload;
+use Nofi\Notification\Push\PushNotificationPayload;
 use Nofi\Entity\Notification;
-use Nofi\Entity\User;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Uid\Uuid;
@@ -26,23 +28,21 @@ final readonly class SendNotificationService
      * Returns what was recorded rather than only its id, so a caller can
      * answer with the stored state instead of guessing it.
      */
-    public function send(User $user, SendNotificationDto $dto): Notification
+    public function send(string $userId, NotificationRequest $request): Notification
     {
         $id = Uuid::v7();
 
-        // Validation guarantees a channel by the time a request reaches here,
-        // so this only fires for a caller that built the DTO itself.
-        $channel = $dto->channel ?? throw new LogicException(
-            "A notification cannot be sent without a channel.",
-        );
-
-        $payload = $channel->payloadFrom($dto);
-        $message = $channel->newMessage($id->toRfc4122(), $dto, $user->getId());
-        $notification = $this->recorder->record($message, $payload);
+        $payload = $request->payload;
+        $message = match (true) {
+            $payload instanceof EmailNotificationPayload => new SendEmailNotification($id->toRfc4122(), $payload),
+            $payload instanceof PushNotificationPayload => new SendPushNotification($id->toRfc4122(), $payload),
+            default => throw new LogicException("Unsupported notification payload: " . $payload::class),
+        };
+        $notification = $this->recorder->record($id->toRfc4122(), $userId, $request);
 
         $stamps = [];
-        if ($dto->scheduledAt !== null) {
-            $delayMs = max(0, ($dto->scheduledAt->getTimestamp() - time()) * self::MILLISECONDS_PER_SECOND);
+        if ($request->scheduledAt !== null) {
+            $delayMs = max(0, ($request->scheduledAt->getTimestamp() - time()) * self::MILLISECONDS_PER_SECOND);
             if ($delayMs > 0) {
                 $stamps[] = new DelayStamp($delayMs);
             }

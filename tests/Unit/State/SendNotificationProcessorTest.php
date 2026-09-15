@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\Post;
 use Doctrine\ORM\EntityManagerInterface;
 use Nofi\Notification\SendNotificationService;
 use Nofi\Dto\SendNotificationDto;
+use Nofi\Dto\NotificationRequestMapper;
 use Nofi\Entity\User;
 use Nofi\Notification\NotificationRecorder;
 use Nofi\Notification\State\SendNotificationProcessor;
@@ -30,7 +31,7 @@ final class SendNotificationProcessorTest extends TestCase
     #[Test]
     public function anUnauthenticatedCallerIsRefused(): void
     {
-        $processor = new SendNotificationProcessor($this->service(), $this->securityFor(null));
+        $processor = new SendNotificationProcessor($this->service(), $this->securityFor(null), new NotificationRequestMapper());
 
         $this->expectException(AuthenticationCredentialsNotFoundException::class);
         $this->expectExceptionMessage('User is not authenticated.');
@@ -43,6 +44,7 @@ final class SendNotificationProcessorTest extends TestCase
         $processor = new SendNotificationProcessor(
             $this->service(),
             $this->securityFor(new User()->setUsername('alice')),
+            new NotificationRequestMapper(),
         );
 
         $this->expectException(InvalidArgumentException::class);

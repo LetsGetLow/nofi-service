@@ -8,12 +8,12 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Nofi\Notification\SendNotificationService;
 use Nofi\Dto\SendNotificationDto;
+use Nofi\Dto\NotificationRequestMapper;
 use Nofi\Entity\User;
 use Nofi\ApiResource\NotificationResource;
 use InvalidArgumentException;
 use Override;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\Messenger\Exception\ExceptionInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationCredentialsNotFoundException;
 
 /**
@@ -21,8 +21,11 @@ use Symfony\Component\Security\Core\Exception\AuthenticationCredentialsNotFoundE
  */
 final readonly class SendNotificationProcessor implements ProcessorInterface
 {
-    public function __construct(private SendNotificationService $service, private Security $security)
-    {
+    public function __construct(
+        private SendNotificationService $service,
+        private Security $security,
+        private NotificationRequestMapper $mapper,
+    ) {
     }
 
     #[Override]
@@ -44,6 +47,6 @@ final readonly class SendNotificationProcessor implements ProcessorInterface
         // Built from the stored notification: answering with a bare resource
         // meant the class defaults were serialised, so a push was reported
         // back as an email that had not been queued yet.
-        return NotificationResource::fromEntity($this->service->send($user, $data));
+        return NotificationResource::fromEntity($this->service->send($user->getId(), $this->mapper->map($data)));
     }
 }

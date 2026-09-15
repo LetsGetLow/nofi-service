@@ -168,13 +168,11 @@ final class SendNotificationDto
 
     public function validateChannelSpecificFields(ExecutionContextInterface $context): void
     {
-        // Null is the one case handled here: #[Assert\NotNull] on $channel
-        // already reports it, and asking the enum would mean asking nothing.
-        // Every real channel dispatches through NotificationChannel, so this
-        // method does not have to be edited when one is added. It used to
-        // carry a "default => null" arm, which meant a new channel was
-        // accepted with no field validation whatsoever.
-        $this->channel?->validate($this, $context);
+        match ($this->channel) {
+            null => null, // The NotNull constraint reports a missing channel.
+            NotificationChannel::EMAIL => $this->validateEmailFields($context),
+            NotificationChannel::PUSH => $this->validatePushFields($context),
+        };
     }
 
     /**
@@ -355,24 +353,5 @@ final class SendNotificationDto
                 ->atPath("tokens[" . $index . "]")
                 ->addViolation();
         }
-    }
-
-    /**
-     * Every target a delivery has to address, whatever the channel called
-     * them: email recipients, device tokens, and each topic in the prefixed
-     * form the rest of the application recognises a topic by.
-     *
-     * @return list<string>
-     */
-    public function deliveryTargets(): array
-    {
-        return [
-            ...array_values($this->recipients),
-            ...array_values($this->tokens),
-            ...array_map(
-                static fn (string $topic): string => PushTopic::PREFIX . $topic,
-                array_values($this->topics),
-            ),
-        ];
     }
 }

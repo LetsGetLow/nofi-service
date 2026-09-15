@@ -4,10 +4,6 @@ declare(strict_types=1);
 
 namespace Nofi\Notification\Email;
 
-use Nofi\Dto\AttachmentDto;
-use InvalidArgumentException;
-
-use function base64_decode;
 use function strlen;
 
 /**
@@ -33,27 +29,6 @@ final readonly class EmailAttachment
     public function isInline(): bool
     {
         return $this->contentId !== null;
-    }
-
-    public static function fromDto(AttachmentDto $dto): self
-    {
-        if ($dto->filename === null || $dto->content === null) {
-            throw new InvalidArgumentException("Attachment is incomplete.");
-        }
-
-        $content = base64_decode($dto->content, true);
-        if ($content === false) {
-            throw new InvalidArgumentException(
-                sprintf('Attachment "%s" is not valid base64.', $dto->filename),
-            );
-        }
-
-        return new self(
-            $dto->filename,
-            $dto->contentType ?? self::DEFAULT_CONTENT_TYPE,
-            $content,
-            $dto->contentId,
-        );
     }
 
     public function size(): int

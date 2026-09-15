@@ -8,7 +8,6 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Nofi\Entity\Notification;
 use Nofi\Entity\User;
-use Nofi\Message\NotificationMessage;
 
 readonly class NotificationRecorder
 {
@@ -16,24 +15,23 @@ readonly class NotificationRecorder
     {
     }
 
-    public function record(NotificationMessage $message, NotificationPayload $payload): Notification
+    public function record(string $notificationId, string $userId, NotificationRequest $request): Notification
     {
-        $dto = $message->getNotificationDto();
-        $user = $this->entityManager->getReference(User::class, $message->getUserId());
+        $user = $this->entityManager->getReference(User::class, $userId);
 
-        $payloadData = $payload->toPayloadData();
+        $payloadData = $request->payload->toPayloadData();
 
-        $notification = new Notification($message->getNotificationId())
-            ->assignChannel($dto->channel ?? NotificationChannel::EMAIL)
+        $notification = new Notification($notificationId)
+            ->assignChannel($request->payload->channel())
             ->assignPayload($payloadData)
-            ->schedule($dto->scheduledAt)
+            ->schedule($request->scheduledAt)
             ->assignCreatedBy($user)
             ->recordCreatedAt(new DateTimeImmutable())
             ->markQueued();
 
         // Topics become recipient rows too, so a topic send is tracked and
         // retried exactly like a device token.
-        foreach ($dto->deliveryTargets() as $target) {
+        foreach ($request->targets as $target) {
             $notification->addRecipient($target);
         }
 

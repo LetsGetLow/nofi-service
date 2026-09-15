@@ -62,12 +62,14 @@ final readonly class SendNotificationHandler
             return;
         }
 
-        $dto = $message->getNotificationDto();
-        $channel = $dto->channel ?? throw new LogicException(sprintf(
-            "Notification %s was queued without a channel.",
-            $message->getNotificationId(),
-        ));
+        $payload = $message->getPayload();
+        if ($notification->getChannel() !== $payload->channel()) {
+            throw new LogicException(sprintf(
+                "Notification %s has a different channel from its queued payload.",
+                $message->getNotificationId(),
+            ));
+        }
 
-        $this->deliveries->for($channel)->deliver($notification, $channel->payloadFrom($dto));
+        $this->deliveries->for($payload->channel())->deliver($notification, $payload);
     }
 }

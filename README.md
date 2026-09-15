@@ -1092,30 +1092,40 @@ Compose is older than v2.24. Upgrade, or create an empty `.env.local`.
 
 ---
 
+## Notification boundaries
+
+The API validates `SendNotificationDto`, then `NotificationRequestMapper` converts
+it to an immutable `NotificationRequest` with a typed payload, delivery targets,
+and schedule. Attachment content is decoded at this boundary. Notification value
+objects do not depend on API DTOs or Symfony validation.
+
+`SendNotificationService` records that request using the authenticated user ID
+and dispatches a channel-specific message containing the notification ID and
+prepared payload. `NotificationRecorder` receives the request directly and stores
+attachment metadata only. The worker loads the notification and passes the queued
+payload to its delivery implementation, checking that the channels agree.
+
+### Deploying the queue format change
+
+The send messages now contain typed payloads instead of API DTOs. Previously
+serialized send messages are incompatible with the new classes. Before deploying,
+pause new sends and finish processing pending messages with the old version,
+including scheduled messages. Resolve failed messages with the old version too;
+do not retry old serialized messages after the upgrade. Then stop old workers,
+deploy the application and workers together, and resume sends. No database schema
+or HTTP API changes are required. Do not mix old and new producers and consumers.
+
 ## Adding a channel
 
-Everything that differs between channels is reached through
-`NotificationChannel`. A new one is five pieces, and only the first is an edit
-to an existing file:
-
-1. A `case` in `src/Notification/NotificationChannel.php`, plus an arm in each
-   of its three `match` expressions — which payload to build, which message to
-   queue, and which validation to run.
-2. A `NotificationPayload` implementation, whose `toPayloadData()` decides what
-   is kept on the notification record.
-3. A `NotificationMessage` implementation. Messenger routes on the class, and
-   the shared interface is what gets it to the one handler.
-4. A `NotificationDelivery` implementation. It is tagged automatically by the
-   attribute on the interface and found by channel through
-   `NotificationDeliveries`, so nothing has to be registered by hand.
-5. A `validate…Fields()` method on `SendNotificationDto` for the rules that
-   only apply there, including which of the other channels' fields to refuse.
-
-Leaving step 1 half-done is caught by Psalm rather than at runtime: the three
-`match` expressions are exhaustive, so an unwired case is three
-`UnhandledMatchCondition` errors in that one file. It used to be four `match`
-statements in four layers, one of which carried a `default => null` arm and
-would have accepted the request with no field validation at all.
+1. Add a case to `NotificationChannel` and a payload implementing `channel()` and
+   `toPayloadData()`. Keep the payload independent of API input types.
+2. Add the API fields and validation to `SendNotificationDto`, including an arm in
+   its channel validation match. Add payload mapping to `NotificationRequestMapper`.
+3. Add a typed `NotificationMessage` implementation with `#[AsMessage("async")]`
+   and select it in `SendNotificationService`. The shared handler reads its payload.
+4. Implement `NotificationDelivery`. The interface tags implementations for
+   `NotificationDeliveries` to resolve by channel automatically.
+5. Cover API validation, mapping, queue serialization, recording, and delivery.
 
 ---
 
@@ -1124,16 +1134,17 @@ would have accepted the request with no field validation at all.
 ```
 src/
   ApiResource/        API Platform resource definition
-  Application/        Application services (send, delete)
   Command/            Console commands (nofi:user:*, nofi:push:check)
   Controller/         Health endpoint
-  Dto/                Request payload and its validation
+  Dto/                API request validation and mapping
   Entity/             Doctrine entities
   Message/            Messenger messages
   MessageHandler/     Messenger handlers
-  Notification/       Domain: channels, status machine, payloads, state providers
+  Notification/       Shared values, application services, recording
+    Email/            Email payloads, attachments, templates, delivery
+    Push/             Push payloads, topics, credentials, delivery
+    State/            API Platform providers and processors
   Repository/         Doctrine repositories
-  Service/            Email and push delivery
 config/
   jwt/                JWT keypair          (contents gitignored, mounted)
   firebase/           Service account JSON (contents gitignored, mounted)

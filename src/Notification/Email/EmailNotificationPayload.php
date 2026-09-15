@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Nofi\Notification\Email;
 
-use Nofi\Dto\SendNotificationDto;
 use Nofi\Notification\NotificationPayload;
-use InvalidArgumentException;
+use Nofi\Notification\NotificationChannel;
 use Override;
 
 final readonly class EmailNotificationPayload implements NotificationPayload
@@ -25,20 +24,10 @@ final readonly class EmailNotificationPayload implements NotificationPayload
     ) {
     }
 
-    public static function fromDto(SendNotificationDto $dto): self
+    #[Override]
+    public function channel(): NotificationChannel
     {
-        if ($dto->sender === null || $dto->subject === null || $dto->message === null) {
-            throw new InvalidArgumentException("Email payload is incomplete.");
-        }
-
-        return new self(
-            $dto->sender,
-            $dto->subject,
-            $dto->message,
-            $dto->template,
-            array_map(EmailAttachment::fromDto(...), array_values($dto->attachments)),
-            $dto->data,
-        );
+        return NotificationChannel::EMAIL;
     }
 
     #[Override]

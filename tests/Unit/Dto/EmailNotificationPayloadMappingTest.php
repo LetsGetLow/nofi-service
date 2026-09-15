@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Nofi\Tests\Unit\Notification\Email;
+namespace Nofi\Tests\Unit\Dto;
 
+use Nofi\Dto\NotificationRequestMapper;
 use Nofi\Dto\AttachmentDto;
 use Nofi\Dto\SendNotificationDto;
 use Nofi\Notification\Email\EmailNotificationPayload;
@@ -12,11 +13,11 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
-#[TestDox("EmailNotificationPayload behavior")]
-final class EmailNotificationPayloadTest extends TestCase
+#[TestDox("EmailNotificationPayload mapping")]
+final class EmailNotificationPayloadMappingTest extends TestCase
 {
     #[Test]
-    public function fromDtoBuildsAnExplicitPayloadObject(): void
+    public function mappingBuildsAnExplicitPayloadObject(): void
     {
         $dto = new SendNotificationDto();
         $dto->sender = "noreply@example.com";
@@ -30,7 +31,7 @@ final class EmailNotificationPayloadTest extends TestCase
         $dto->attachments = [$attachment];
         $dto->data = ["name" => "Ada"];
 
-        $payload = EmailNotificationPayload::fromDto($dto);
+        $payload = new NotificationRequestMapper()->emailPayload($dto);
 
         self::assertInstanceOf(EmailNotificationPayload::class, $payload);
         self::assertSame("noreply@example.com", $payload->sender);
@@ -46,10 +47,10 @@ final class EmailNotificationPayloadTest extends TestCase
     }
 
     #[Test]
-    public function fromDtoRejectsIncompletePayloads(): void
+    public function mappingRejectsIncompletePayloads(): void
     {
         $this->expectException(InvalidArgumentException::class);
 
-        EmailNotificationPayload::fromDto(new SendNotificationDto());
+        new NotificationRequestMapper()->emailPayload(new SendNotificationDto());
     }
 }

@@ -4,17 +4,16 @@ declare(strict_types=1);
 
 namespace Nofi\Message;
 
-use Nofi\Dto\SendNotificationDto;
+use Nofi\Notification\Push\PushNotificationPayload;
 use Override;
 use Symfony\Component\Messenger\Attribute\AsMessage;
 
 #[AsMessage("async")]
-class SendPushNotification implements NotificationMessage
+final readonly class SendPushNotification implements NotificationMessage
 {
     public function __construct(
         private string $notificationId,
-        private SendNotificationDto $notificationDto,
-        private string $userId,
+        private PushNotificationPayload $payload,
     ) {
     }
 
@@ -25,14 +24,8 @@ class SendPushNotification implements NotificationMessage
     }
 
     #[Override]
-    public function getNotificationDto(): SendNotificationDto
+    public function getPayload(): PushNotificationPayload
     {
-        return $this->notificationDto;
-    }
-
-    #[Override]
-    public function getUserId(): string
-    {
-        return $this->userId;
+        return $this->payload;
     }
 }

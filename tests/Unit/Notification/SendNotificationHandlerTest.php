@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Nofi\Tests\Unit\Notification;
 
-use Nofi\Dto\SendNotificationDto;
 use Nofi\Entity\Notification;
 use Nofi\Message\SendEmailNotification;
 use Nofi\Message\SendPushNotification;
@@ -32,12 +31,7 @@ final class SendNotificationHandlerTest extends TestCase
     #[Test]
     public function invokeLoadsAndDeliversAnEmailNotification(): void
     {
-        $dto = new SendNotificationDto();
-        $dto->channel = NotificationChannel::EMAIL;
-        $dto->sender = 'noreply@example.com';
-        $dto->subject = 'Hello';
-        $dto->message = 'Hi there';
-        $dto->recipients = ['alice@example.com'];
+        $payload = new EmailNotificationPayload('noreply@example.com', 'Hello', 'Hi there', null);
 
         $notification = new Notification('notif-1');
         $delivery = $this->deliveryFor(NotificationChannel::EMAIL);
@@ -54,20 +48,16 @@ final class SendNotificationHandlerTest extends TestCase
             );
 
         $this->handlerFor($notification, $delivery)(
-            new SendEmailNotification('notif-1', $dto, 'user-1'),
+            new SendEmailNotification('notif-1', $payload),
         );
     }
 
     #[Test]
     public function invokeLoadsAndDeliversAPushNotification(): void
     {
-        $dto = new SendNotificationDto();
-        $dto->channel = NotificationChannel::PUSH;
-        $dto->title = 'Order shipped';
-        $dto->message = 'On its way';
-        $dto->tokens = ['device-token-1'];
+        $payload = new PushNotificationPayload('Order shipped', 'On its way');
 
-        $notification = new Notification('notif-2');
+        $notification = new Notification('notif-2')->assignChannel(NotificationChannel::PUSH);
         $delivery = $this->deliveryFor(NotificationChannel::PUSH);
 
         $delivery->expects(self::once())
@@ -81,7 +71,7 @@ final class SendNotificationHandlerTest extends TestCase
             );
 
         $this->handlerFor($notification, $delivery)(
-            new SendPushNotification('notif-2', $dto, 'user-1'),
+            new SendPushNotification('notif-2', $payload),
         );
     }
 
@@ -100,7 +90,22 @@ final class SendNotificationHandlerTest extends TestCase
             $this->createStub(LoggerInterface::class),
         );
 
-        $handler(new SendEmailNotification('gone', new SendNotificationDto(), 'user-1'));
+        $handler(new SendEmailNotification('gone', new EmailNotificationPayload('sender@example.com', 'Subject', 'Body', null)));
+    }
+
+    #[Test]
+    public function aPayloadForAnotherChannelIsRejectedBeforeDelivery(): void
+    {
+        $notification = new Notification('notif-1')->assignChannel(NotificationChannel::EMAIL);
+        $delivery = $this->deliveryFor(NotificationChannel::PUSH);
+        $delivery->expects(self::never())->method('deliver');
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('different channel from its queued payload');
+
+        $this->handlerFor($notification, $delivery)(
+            new SendPushNotification('notif-1', new PushNotificationPayload('Title', 'Body')),
+        );
     }
 
     /**

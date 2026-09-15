@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Nofi\Tests\Unit\Notification\Email;
+namespace Nofi\Tests\Unit\Dto;
 
+use Nofi\Dto\NotificationRequestMapper;
 use Nofi\Dto\AttachmentDto;
 use Nofi\Notification\Email\EmailAttachment;
 use InvalidArgumentException;
@@ -11,13 +12,13 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
-#[TestDox("EmailAttachment")]
-final class EmailAttachmentTest extends TestCase
+#[TestDox("EmailAttachment mapping")]
+final class EmailAttachmentMappingTest extends TestCase
 {
     #[Test]
-    public function fromDtoDecodesTheContent(): void
+    public function mappingDecodesTheContent(): void
     {
-        $attachment = EmailAttachment::fromDto($this->dto());
+        $attachment = new NotificationRequestMapper()->attachment($this->dto());
 
         self::assertSame('invoice.pdf', $attachment->filename);
         self::assertSame('application/pdf', $attachment->contentType);
@@ -34,7 +35,7 @@ final class EmailAttachmentTest extends TestCase
 
         self::assertSame(
             EmailAttachment::DEFAULT_CONTENT_TYPE,
-            EmailAttachment::fromDto($dto)->contentType,
+            new NotificationRequestMapper()->attachment($dto)->contentType,
         );
     }
 
@@ -44,39 +45,39 @@ final class EmailAttachmentTest extends TestCase
         $dto = $this->dto();
         $dto->contentId = 'logo';
 
-        self::assertTrue(EmailAttachment::fromDto($dto)->isInline());
+        self::assertTrue(new NotificationRequestMapper()->attachment($dto)->isInline());
     }
 
     #[Test]
-    public function fromDtoRejectsAMissingFilename(): void
+    public function mappingRejectsAMissingFilename(): void
     {
         $dto = $this->dto();
         $dto->filename = null;
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Attachment is incomplete.');
-        EmailAttachment::fromDto($dto);
+        new NotificationRequestMapper()->attachment($dto);
     }
 
     #[Test]
-    public function fromDtoRejectsMissingContent(): void
+    public function mappingRejectsMissingContent(): void
     {
         $dto = $this->dto();
         $dto->content = null;
 
         $this->expectException(InvalidArgumentException::class);
-        EmailAttachment::fromDto($dto);
+        new NotificationRequestMapper()->attachment($dto);
     }
 
     #[Test]
-    public function fromDtoRejectsContentThatIsNotBase64(): void
+    public function mappingRejectsContentThatIsNotBase64(): void
     {
         $dto = $this->dto();
         $dto->content = 'not base64!!';
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('"invoice.pdf" is not valid base64');
-        EmailAttachment::fromDto($dto);
+        new NotificationRequestMapper()->attachment($dto);
     }
 
     private function dto(): AttachmentDto
