@@ -29,7 +29,8 @@ use Symfony\Component\Uid\Uuid;
     shortName: "Notification",
     operations: [
         new GetCollection(
-            uriTemplate: "/",
+            // Keep the collection at the prefix itself, without a redirect.
+            uriTemplate: "{._format}",
             provider: NotificationProvider::class,
         ),
         new Get(
@@ -70,9 +71,9 @@ use Symfony\Component\Uid\Uuid;
         ),
         new Delete(
             uriTemplate: "/{id}",
-        // The security expression is enforced at runtime but never reaches
-        // the OpenAPI document, so a reader of the documentation would meet
-        // the 403 and the 409 without warning.
+            // The security expression is enforced at runtime but never reaches
+            // the OpenAPI document, so a reader of the documentation would meet
+            // the 403 and the 409 without warning.
             openapi: new OpenApiOperation(
                 summary: "Removes a notification that has not gone out yet",
                 description: "Requires ROLE_ADMIN, and removes the record along with its recipients. "
