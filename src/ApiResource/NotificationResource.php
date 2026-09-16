@@ -143,6 +143,9 @@ final class NotificationResource
     #[Groups(["notification:read"])]
     public ?DateTimeImmutable $createdAt = null;
 
+    #[Groups(["notification:read"])]
+    public ?DateTimeImmutable $processingStartedAt = null;
+
     // The delay is stamped onto the queued message when the send is
     // accepted, so this records the time that was asked for. Moving it means
     // cancelling and sending again.
@@ -193,6 +196,7 @@ final class NotificationResource
         $resource->channel = $notification->getChannel();
         $resource->createdAt = $notification->getCreatedAt();
         $resource->scheduledAt = $notification->getScheduledAt();
+        $resource->processingStartedAt = $notification->getProcessingStartedAt();
 
         foreach ($notification->getRecipients() as $recipient) {
             $resource->recipients[] = [

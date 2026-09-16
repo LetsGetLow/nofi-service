@@ -28,3 +28,4 @@
 ###> MCP config
 /.codex/config.toml
 ###< MCP config
+/process.txt

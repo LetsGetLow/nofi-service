@@ -43,7 +43,6 @@ readonly class PushNotificationDelivery implements NotificationDelivery
             ));
         }
 
-        $notification->markProcessing();
 
         $deviceTokens = [];
         foreach ($notification->getRecipients() as $recipient) {

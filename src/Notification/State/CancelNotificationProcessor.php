@@ -6,14 +6,12 @@ namespace Nofi\Notification\State;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Doctrine\ORM\EntityManagerInterface;
+use DomainException;
+use Nofi\Notification\NotificationLifecycle;
 use Nofi\ApiResource\NotificationResource;
-use Nofi\Entity\Notification;
 use Override;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
-
-use function sprintf;
 
 /**
  * Stops a send that has not gone out yet, and keeps it as a record of the
@@ -28,7 +26,7 @@ use function sprintf;
  */
 final readonly class CancelNotificationProcessor implements ProcessorInterface
 {
-    public function __construct(private EntityManagerInterface $entityManager)
+    public function __construct(private NotificationLifecycle $lifecycle)
     {
     }
 
@@ -46,22 +44,15 @@ final readonly class CancelNotificationProcessor implements ProcessorInterface
             throw new NotFoundHttpException("Notification not found.");
         }
 
-        $notification = $this->entityManager->find(Notification::class, $data->id);
-        if (!$notification instanceof Notification) {
+        try {
+            $notification = $this->lifecycle->cancelNotification($data->id);
+        } catch (DomainException $exception) {
+            throw new ConflictHttpException($exception->getMessage(), $exception);
+        }
+
+        if ($notification === null) {
             throw new NotFoundHttpException("Notification not found.");
         }
-
-        if (!$notification->getStatus()->isWithdrawable()) {
-            throw new ConflictHttpException(sprintf(
-                'Notification %s is %s and cannot be cancelled. Only a send that has '
-                . 'not gone out yet can be stopped.',
-                $notification->getId(),
-                $notification->getStatus()->value,
-            ));
-        }
-
-        $notification->markCancelled();
-        $this->entityManager->flush();
 
         return NotificationResource::fromEntity($notification);
     }

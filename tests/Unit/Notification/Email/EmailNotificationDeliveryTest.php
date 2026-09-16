@@ -98,7 +98,7 @@ final class EmailNotificationDeliveryTest extends TestCase
 
     private function notificationFor(array $recipients): Notification
     {
-        $notification = new Notification('notif-1')->markQueued();
+        $notification = new Notification('notif-1')->markQueued()->markProcessing();
         foreach ($recipients as $recipient) {
             $notification->addRecipient($recipient);
         }

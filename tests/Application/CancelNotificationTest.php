@@ -82,6 +82,23 @@ final class CancelNotificationTest extends ApiTestCase
     }
 
     #[Test]
+    public function aClaimedSendCannotBeCancelledAndExposesItsStartTime(): void
+    {
+        $notification = $this->stored();
+        self::getContainer()->get(\Nofi\Notification\NotificationLifecycle::class)->claimNotificationForDelivery($notification->getId());
+
+        $this->request('GET', $this->id, $this->token);
+        $this->assertResponseStatus(Response::HTTP_OK);
+        self::assertSame('processing', $this->jsonResponse()['status']);
+        self::assertNotNull($this->stored()->getProcessingStartedAt(), 'Persisted claim timestamp');
+        self::assertNotNull($this->jsonResponse()['processingStartedAt'], json_encode($this->jsonResponse()));
+
+        $this->request('POST', $this->id . '/cancel', $this->token);
+        $this->assertResponseStatus(Response::HTTP_CONFLICT);
+        self::assertSame(NotificationStatus::PROCESSING, $this->stored()->getStatus());
+    }
+
+    #[Test]
     public function aSendThatAlreadyWentOutCannotBeCancelled(): void
     {
         $notification = $this->stored();

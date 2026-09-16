@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Nofi\Tests\Application;
 
 use Nofi\Entity\Notification;
-use Nofi\Notification\NotificationStatus;
+use Symfony\Bundle\FrameworkBundle\Test\MailerAssertionsTrait;
 use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -14,20 +14,11 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\ReceivedStamp;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
-/**
- * Deleting removes a send that has not started, where cancelling would keep the
- * record. The rule is the same one cancelling enforces — a worker that is
- * already delivering cannot be stopped — and these tests exist because the two
- * operations used to disagree about it.
- *
- * The processor asked isFinal() while cancelling asked isWaiting(). PROCESSING
- * is neither, so a send in flight was refused a cancellation and granted a
- * deletion, and the handler removed the row while the worker was mid-delivery.
- * Both now ask isWithdrawable().
- */
 #[TestDox("Deleting a notification")]
 final class DeleteNotificationTest extends ApiTestCase
 {
+    use MailerAssertionsTrait;
+
     private string $token;
     private string $id;
 
@@ -46,8 +37,7 @@ final class DeleteNotificationTest extends ApiTestCase
 
         $this->assertResponseStatus(Response::HTTP_NO_CONTENT);
 
-        $this->consumeQueue();
-        self::assertNull($this->stored(), 'the record must be gone once the queue is consumed');
+        self::assertNull($this->stored(), 'the record must be gone when DELETE returns');
     }
 
     #[Test]
@@ -76,23 +66,16 @@ final class DeleteNotificationTest extends ApiTestCase
         self::assertNotNull($this->stored());
     }
 
-    /**
-     * The gap the processor alone cannot close: deleting is asynchronous, so a
-     * worker can pick the send up between the request being accepted and the
-     * message being consumed. The handler has to ask the question again.
-     */
     #[Test]
-    public function aSendThatStartsAfterTheRequestIsNotRemoved(): void
+    public function aDeletedSendCannotBeDeliveredByTheWorker(): void
     {
         $this->request('DELETE', $this->id, $this->token);
         $this->assertResponseStatus(Response::HTTP_NO_CONTENT);
 
-        $this->markProcessing();
         $this->consumeQueue();
 
-        $stored = $this->stored();
-        self::assertNotNull($stored, 'the handler must refuse a send that started meanwhile');
-        self::assertSame(NotificationStatus::PROCESSING, $stored->getStatus());
+        self::assertEmailCount(0);
+        self::assertNull($this->stored());
     }
 
     #[Test]

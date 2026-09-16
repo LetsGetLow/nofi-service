@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Nofi\MessageHandler;
 
 use LogicException;
+use Throwable;
 use Nofi\Message\NotificationMessage;
 use Nofi\Notification\NotificationDeliveries;
-use Nofi\Notification\NotificationStatus;
-use Nofi\Repository\NotificationRepository;
+use Nofi\Notification\NotificationLifecycle;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -26,7 +26,7 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 final readonly class SendNotificationHandler
 {
     public function __construct(
-        private NotificationRepository $notificationRepository,
+        private NotificationLifecycle $lifecycle,
         private NotificationDeliveries $deliveries,
         private LoggerInterface $logger,
     ) {
@@ -34,42 +34,30 @@ final readonly class SendNotificationHandler
 
     public function __invoke(NotificationMessage $message): void
     {
-        $notification = $this->notificationRepository->find($message->getNotificationId());
+        $notification = $this->lifecycle->claimNotificationForDelivery($message->getNotificationId());
         if ($notification === null) {
-            // The notification was deleted between being queued and being
-            // consumed, which DeleteNotification makes a normal outcome.
-            // Retrying cannot bring it back, so stop instead of exhausting
-            // the retry budget and landing in the failed transport.
-            $this->logger->info("Skipping a notification that no longer exists.", [
+            $this->logger->info("Skipping a missing notification or one that cannot be claimed.", [
                 "notification" => $message->getNotificationId(),
             ]);
 
             return;
         }
 
-        // A cancellation cannot withdraw the queued message, so this is where
-        // it takes effect. Asked as "may this still be delivered" rather than
-        // "is it waiting", because a retry of a failed send arrives here as
-        // failed and has to get through. Skipped rather than raised: raising
-        // would retry five times and then park the message in the failed
-        // transport, for a decision that was deliberate.
-        if (!$notification->getStatus()->canTransitionTo(NotificationStatus::PROCESSING)) {
-            $this->logger->info("Skipping a notification that is no longer waiting to be sent.", [
-                "notification" => $message->getNotificationId(),
-                "status" => $notification->getStatus()->value,
-            ]);
+        // The claim is committed before calling an external provider.
+        try {
+            $payload = $message->getPayload();
+            if ($notification->getChannel() !== $payload->channel()) {
+                throw new LogicException(sprintf(
+                    "Notification %s has a different channel from its queued payload.",
+                    $message->getNotificationId(),
+                ));
+            }
 
-            return;
+            $this->deliveries->for($payload->channel())->deliver($notification, $payload);
+        } catch (Throwable $exception) {
+            $this->lifecycle->recordDeliveryFailure($notification);
+
+            throw $exception;
         }
-
-        $payload = $message->getPayload();
-        if ($notification->getChannel() !== $payload->channel()) {
-            throw new LogicException(sprintf(
-                "Notification %s has a different channel from its queued payload.",
-                $message->getNotificationId(),
-            ));
-        }
-
-        $this->deliveries->for($payload->channel())->deliver($notification, $payload);
     }
 }

@@ -323,14 +323,13 @@ without raising, so nothing lands in the failed transport.
 **A notification cannot be edited, and there is no `PATCH`.** The status is
 reported, not set. It moves in exactly two places: a worker delivering
 (`processing` → `sent` or `failed`) and a cancellation. The states are
-`created`, `queued`, `processing`, `sent`, `failed` and `cancelled` — the last
-three are final, and nothing leaves them.
+`created`, `queued`, `processing`, `sent`, `failed` and `cancelled`. Sent and
+cancelled notifications cannot be delivered again; failed ones can be retried.
 
 Everything else is the request as it was accepted, and it is fixed for one
-reason: **the worker never reads the database.** It sends the DTO carried in
-the queued message, so rewriting `payload`, `channel` or `scheduledAt` in the
-record would describe a send that never happened — before delivery as much as
-after it. Changing what goes out means cancelling and sending a new one.
+reason: **delivery content comes from the queued payload.** The worker reads
+the database for status and recipients, but sends the prepared payload from the
+queue. Changing what goes out means cancelling and sending a new notification.
 
 A failed send is the one thing that is retried, and Messenger does it: five
 attempts with growing delay, then the message waits in the failed transport for
@@ -338,9 +337,10 @@ attempts with growing delay, then the message waits in the failed transport for
 recipients that failed or never got their turn.
 
 Deleting is a purge, cancelling is not. What already went out stays as the
-record of what was sent — the worker refuses to remove it, and since the
-deletion is asynchronous the endpoint refuses it too, so the caller learns it
-from the `409` rather than from a `204` that changes nothing. Personal data in
+record of what was sent. Deletion is synchronous: `204` means the row and its
+recipients are removed. Deletion and cancellation lock the same row that a worker
+locks when claiming a send; if the worker has claimed it, the API returns `409`.
+Personal data in
 `notification_recipient` therefore needs a retention policy rather than manual
 deletes.
 
@@ -1105,6 +1105,55 @@ prepared payload. `NotificationRecorder` receives the request directly and store
 attachment metadata only. The worker loads the notification and passes the queued
 payload to its delivery implementation, checking that the channels agree.
 
+### Worker claims and interrupted sends
+
+`NotificationLifecycle` locks the notification with `SELECT ... FOR UPDATE`
+inside a short transaction. It refreshes any entity already loaded by Doctrine,
+checks its status, and saves `processing` with `processingStartedAt` before
+committing. Email and Firebase calls happen after that transaction finishes.
+Cancellation and synchronous deletion use the same locking protocol.
+
+A second worker cannot deliver an already-processing notification. Its message
+follows the normal retry policy and eventually goes to the failed transport,
+keeping the payload available for recovery. Deleted, cancelled, and sent
+notifications are skipped. Ordinary delivery exceptions persist `failed` before
+being rethrown for Messenger to retry; recipients already sent are preserved.
+
+`processingStartedAt` records when the latest attempt began and stays available
+after completion. A hard crash or database failure can leave `processing` behind.
+There is deliberately no timeout-based takeover: elapsed time cannot prove that
+the original worker has stopped sending.
+
+For operator recovery:
+
+1. Stop the relevant workers and confirm that the original attempt is no longer
+   running. Inspect provider records and recipient statuses; a provider may have
+   accepted a message before its success was saved.
+2. Reconcile any known recipient successes. Only when a retry is appropriate,
+   change the stuck notification from `processing` to `failed` in the database,
+   and change any unresolved `processing` recipients to `failed`. Keep confirmed
+   `sent` recipients unchanged. Perform these updates in one transaction.
+3. Resume workers. If the message is in the failed transport, retry its message ID
+   with `messenger:failed:retry`. Retrying without resolving the `processing`
+   status will refuse the claim again.
+
+Recovery can duplicate deliveries whose provider outcome is unknown; row locking
+does not provide exactly-once delivery.
+
+### Testing concurrency
+
+The ordinary suite uses SQLite. To also run the row-lock races, set
+`NOFI_TEST_POSTGRES_DSN` to a disposable PostgreSQL database:
+
+```bash
+NOFI_TEST_POSTGRES_DSN=postgresql://nofi_test:nofi_test@127.0.0.1:5432/nofi_test \
+  php bin/phpunit --testsuite "PostgreSQL Concurrency Tests"
+```
+
+These tests use separate processes and connections, wait until PostgreSQL reports
+lock contention, and verify both operation orderings. Each test creates and drops
+its own temporary schema. CI supplies PostgreSQL and runs them with the suite.
+
 ### Deploying the queue format change
 
 The send messages now contain typed payloads instead of API DTOs. Previously
@@ -1112,8 +1161,10 @@ serialized send messages are incompatible with the new classes. Before deploying
 pause new sends and finish processing pending messages with the old version,
 including scheduled messages. Resolve failed messages with the old version too;
 do not retry old serialized messages after the upgrade. Then stop old workers,
-deploy the application and workers together, and resume sends. No database schema
-or HTTP API changes are required. Do not mix old and new producers and consumers.
+apply the migrations (including `processing_started_at`), deploy the application
+and workers together, and resume sends. Responses now expose `processingStartedAt`
+after a claim. Stop all old workers during this rollout: they do not participate
+in the new locking protocol. Do not mix old and new producers and consumers.
 
 ## Adding a channel
 

@@ -99,7 +99,7 @@ final class PushNotificationDeliveryTest extends TestCase
 
     private function notificationFor(array $tokens): Notification
     {
-        $notification = new Notification('notif-1')->markQueued();
+        $notification = new Notification('notif-1')->markQueued()->markProcessing();
         foreach ($tokens as $token) {
             $notification->addRecipient($token);
         }

@@ -27,6 +27,9 @@
         <testsuite name="Integration Tests">
             <directory>tests/Integration</directory>
         </testsuite>
+        <testsuite name="PostgreSQL Concurrency Tests">
+            <directory>tests/Concurrency</directory>
+        </testsuite>
         <testsuite name="Application Tests">
             <directory>tests/Application</directory>
         </testsuite>

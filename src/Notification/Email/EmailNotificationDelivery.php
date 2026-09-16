@@ -47,7 +47,6 @@ readonly class EmailNotificationDelivery implements NotificationDelivery
             ));
         }
 
-        $notification->markProcessing();
         $attempted = 0;
         $failed = 0;
 

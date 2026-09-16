@@ -250,8 +250,7 @@ final class NotificationAccessTest extends ApiTestCase
         $this->request('POST', '/api/v1/notifications/send', $this->tokenFor($alice), $this->emailPayload());
         $id = $this->jsonResponse()['@id'];
 
-        // The handler ignores a notification that already went out, so a 204
-        // here would promise a deletion that never happens.
+        // The endpoint must refuse to remove the record of a completed send.
         $notification = self::entityManager()->find(Notification::class, basename($id));
         $notification->markProcessing()->transitionToStatus(NotificationStatus::SENT);
         self::entityManager()->flush();

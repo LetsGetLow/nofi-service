@@ -110,6 +110,20 @@ jobs:
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: nofi_test
+          POSTGRES_PASSWORD: nofi_test
+          POSTGRES_DB: nofi_test
+        options: >-
+          --health-cmd "pg_isready -U nofi_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NOFI_TEST_POSTGRES_DSN: postgresql://nofi_test:nofi_test@postgres:5432/nofi_test
     steps:
       - uses: actions/checkout@v7
       # Jobs run against the checkout Actions made, which is the commit under

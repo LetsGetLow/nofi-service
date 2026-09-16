@@ -43,6 +43,9 @@ class Notification
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
     private ?DateTimeImmutable $scheduledAt = null;
 
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?DateTimeImmutable $processingStartedAt = null;
+
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[
         ORM\JoinColumn(
@@ -91,7 +94,10 @@ class Notification
 
     public function markProcessing(): static
     {
-        return $this->transitionToStatus(NotificationStatus::PROCESSING);
+        $this->transitionToStatus(NotificationStatus::PROCESSING);
+        $this->processingStartedAt = new DateTimeImmutable();
+
+        return $this;
     }
 
     public function markSent(): static
@@ -160,6 +166,11 @@ class Notification
         $this->createdAt = $createdAt;
 
         return $this;
+    }
+
+    public function getProcessingStartedAt(): ?DateTimeImmutable
+    {
+        return $this->processingStartedAt;
     }
 
     public function getScheduledAt(): ?DateTimeImmutable

@@ -257,7 +257,7 @@ final class EmailDeliveryTest extends IntegrationTestCase
         $notification = new Notification()
             ->assignCreatedBy($owner)
             ->recordCreatedAt(new \DateTimeImmutable())
-            ->markQueued();
+            ->markQueued()->markProcessing();
 
         foreach ($recipients as $recipient) {
             $notification->addRecipient($recipient);

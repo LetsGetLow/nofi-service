@@ -25,6 +25,7 @@ interface NotificationDelivery
     public function channel(): NotificationChannel;
 
     /**
+     * The notification has already been claimed and persisted as processing.
      * Implementations check the concrete payload type. The worker selects the
      * delivery using the payload's channel after checking the stored channel.
      */

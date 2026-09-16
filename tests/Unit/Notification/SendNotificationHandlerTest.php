@@ -13,7 +13,7 @@ use Nofi\Notification\NotificationChannel;
 use Nofi\Notification\NotificationDeliveries;
 use Nofi\Notification\NotificationDelivery;
 use Nofi\Notification\Push\PushNotificationPayload;
-use Nofi\Repository\NotificationRepository;
+use Nofi\Notification\NotificationLifecycle;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -81,11 +81,11 @@ final class SendNotificationHandlerTest extends TestCase
         $delivery = $this->deliveryFor(NotificationChannel::EMAIL);
         $delivery->expects(self::never())->method('deliver');
 
-        $repository = $this->createStub(NotificationRepository::class);
-        $repository->method('find')->willReturn(null);
+        $lifecycle = $this->createStub(NotificationLifecycle::class);
+        $lifecycle->method('claimNotificationForDelivery')->willReturn(null);
 
         $handler = new SendNotificationHandler(
-            $repository,
+            $lifecycle,
             new NotificationDeliveries([$delivery]),
             $this->createStub(LoggerInterface::class),
         );
@@ -123,14 +123,14 @@ final class SendNotificationHandlerTest extends TestCase
         Notification $notification,
         NotificationDelivery $delivery,
     ): SendNotificationHandler {
-        $repository = $this->createMock(NotificationRepository::class);
-        $repository->expects(self::once())
-            ->method('find')
+        $lifecycle = $this->createMock(NotificationLifecycle::class);
+        $lifecycle->expects(self::once())
+            ->method('claimNotificationForDelivery')
             ->with($notification->getId())
             ->willReturn($notification);
 
         return new SendNotificationHandler(
-            $repository,
+            $lifecycle,
             new NotificationDeliveries([$delivery]),
             $this->createStub(LoggerInterface::class),
         );
