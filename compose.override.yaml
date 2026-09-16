@@ -2,6 +2,12 @@ services:
   php:
     build:
       target: dev
+    environment:
+      # Non-secret pieces of the DSN tests/bootstrap.php assembles for the
+      # row-lock tests. POSTGRES_PASSWORD comes from env_file below instead.
+      POSTGRES_USER: "${POSTGRES_USER:-app}"
+      POSTGRES_DB: "${POSTGRES_DB:-app}"
+      POSTGRES_VERSION: "${POSTGRES_VERSION:-16}"
     volumes:
       - "./composer.json:/app/composer.json:z"
       - "./composer.lock:/app/composer.lock:z"

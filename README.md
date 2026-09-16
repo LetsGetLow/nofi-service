@@ -1159,19 +1159,25 @@ does not provide exactly-once delivery.
 ### Testing concurrency
 
 The ordinary suite uses SQLite. `NotificationLifecycleTest`, alongside the rest
-of the Integration suite, additionally proves the row-lock races, but only when
-`NOFI_TEST_POSTGRES_DSN` names a disposable PostgreSQL database — it skips
-itself otherwise:
+of the Integration suite, additionally proves the row-lock races against real
+PostgreSQL. It isolates itself in its own schema, created and dropped per run,
+so it is safe to point at a database that already has other data in it.
+
+Out of the box under `./docker`, `tests/bootstrap.php` points it at the same
+`database` service the dev stack already runs against, assembled from
+`POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB`/`POSTGRES_VERSION` — nothing
+to configure. Set `NOFI_TEST_POSTGRES_DSN` yourself to use a different
+database instead; CI does exactly that, pointing it at a throwaway PostgreSQL
+service on the `phpunit` job. Either way, it skips itself if neither is
+available:
 
 ```bash
 NOFI_TEST_POSTGRES_DSN=postgresql://nofi_test:nofi_test@127.0.0.1:5432/nofi_test \
   php bin/phpunit --filter NotificationLifecycleTest
 ```
 
-It uses separate processes and connections, waits until PostgreSQL reports lock
-contention, and verifies both operation orderings. Each run creates and drops its
-own temporary schema. CI supplies PostgreSQL and runs it as part of the ordinary
-`phpunit` job.
+It uses separate processes and connections and waits until PostgreSQL reports
+lock contention, rather than guessing from timing.
 
 ### Deploying the queue format change
 
