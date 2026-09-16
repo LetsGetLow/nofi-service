@@ -10,6 +10,22 @@ Messenger workers.
 
 ---
 
+## Contents
+
+- [Requirements](#requirements)
+- [First-time setup](#first-time-setup)
+- [Verify the setup](#verify-the-setup)
+- [Day-to-day](#day-to-day)
+- [Production](#production)
+- [Continuous integration](#continuous-integration)
+- [Configuration reference](#configuration-reference)
+- [Troubleshooting](#troubleshooting)
+- [Notification boundaries](#notification-boundaries)
+- [Adding a channel](#adding-a-channel)
+- [Project Structure](#project-structure)
+
+---
+
 ## Requirements
 
 | | |
@@ -940,9 +956,9 @@ twice.
 
 | job | what it protects |
 |---|---|
-| `phpunit` | the suite, on SQLite, exactly as it runs locally |
-| `psalm` | `errorLevel="6"` over `src/`, which was reporting 57 findings the day it was installed |
-| `audit` | `composer audit`, blocking. It found 36 production advisories once, including a firewall bypass |
+| `phpunit` | the suite — SQLite plus the PostgreSQL concurrency races, since a `postgres` service is attached to this job |
+| `psalm` | `errorLevel="6"` over `src/` |
+| `audit` | `composer audit`, blocking on any known vulnerability in a dependency |
 | `lint` | PHP_CodeSniffer (PSR-12), `composer validate`, YAML, Twig, and `lint:container` — which resolves every service, so a wiring mistake no test touches fails here |
 | `migrations` | the gap the suite cannot cover: see below |
 
@@ -954,7 +970,7 @@ deliberate way to test those.
 The `migrations` job exists because the test suite deliberately cannot do this.
 Tests build their schema from the entity metadata
 (`tests/Support/InteractsWithDatabase.php`) and run on SQLite, so a migration
-that is broken, misordered or drifted from the entities passes all 246 of them.
+that is broken, misordered or drifted from the entities passes every one of them.
 That job starts a `postgres:16-alpine` service, lets the migrations be the only
 thing that builds the schema, and then runs `doctrine:schema:validate` —
 including the sync half, so an entity changed without a migration fails the
@@ -1180,7 +1196,7 @@ in the new locking protocol. Do not mix old and new producers and consumers.
 
 ---
 
-## Layout
+## Project Structure
 
 ```
 src/
@@ -1191,10 +1207,10 @@ src/
   Entity/             Doctrine entities
   Message/            Messenger messages
   MessageHandler/     Messenger handlers
-  Notification/       Shared values, application services, recording
+  Notification/       Channels, status machine, locking/lifecycle, payloads, application services, recording
     Email/            Email payloads, attachments, templates, delivery
     Push/             Push payloads, topics, credentials, delivery
-    State/            API Platform providers and processors
+    State/            API Platform providers and processors (not domain — framework adapters)
   Repository/         Doctrine repositories
 config/
   jwt/                JWT keypair          (contents gitignored, mounted)
