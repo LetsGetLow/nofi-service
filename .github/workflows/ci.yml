@@ -179,6 +179,9 @@ jobs:
       COMPOSER_CACHE_DIR: ${{ github.workspace }}/.composer-cache
     steps:
       - uses: actions/checkout@v7
+      # See the "lint" job: Composer's version-guesser shells out to git,
+      # which refuses to run across the checkout/container ownership mismatch.
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Take the vendor from the image
         run: |
           rm -rf vendor && cp -a /app/vendor vendor
@@ -204,6 +207,10 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v7
+      # Composer's root-version guesser shells out to git on every command;
+      # the checkout (host user) and this container (image user) disagree on
+      # ownership, which git refuses since CVE-2022-24765.
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Take the vendor from the image
         run: |
           rm -rf vendor && cp -a /app/vendor vendor
