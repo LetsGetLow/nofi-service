@@ -9,7 +9,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Nofi\Entity\Notification;
 use Nofi\Entity\User;
 
-readonly class NotificationRecorder
+final readonly class NotificationRecorder
 {
     public function __construct(private EntityManagerInterface $entityManager)
     {

@@ -11,7 +11,7 @@ use Kreait\Firebase\Messaging\Notification as PushNotification;
 use Override;
 use Throwable;
 
-readonly class FirebasePushService implements PushService
+final readonly class FirebasePushService implements PushService
 {
     public function __construct(
         private Messaging $messaging,

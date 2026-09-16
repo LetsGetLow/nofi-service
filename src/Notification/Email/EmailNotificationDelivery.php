@@ -19,7 +19,7 @@ use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Throwable;
 
-readonly class EmailNotificationDelivery implements NotificationDelivery
+final readonly class EmailNotificationDelivery implements NotificationDelivery
 {
     public function __construct(
         private EntityManagerInterface $entityManager,

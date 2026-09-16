@@ -19,7 +19,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  * still reads as configured here, and shows up where it always did: per device
  * token in the worker log.
  */
-readonly class PushCredentials
+final readonly class PushCredentials
 {
     public function __construct(
         #[Autowire("%env(resolve:FIREBASE_CREDENTIALS_FILE)%")]

@@ -16,7 +16,7 @@ use Override;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 
-readonly class PushNotificationDelivery implements NotificationDelivery
+final readonly class PushNotificationDelivery implements NotificationDelivery
 {
     public function __construct(
         private PushService $pushService,
