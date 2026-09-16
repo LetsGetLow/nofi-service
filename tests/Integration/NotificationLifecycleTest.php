@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Nofi\Tests\Concurrency;
+namespace Nofi\Tests\Integration;
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManager;
@@ -82,15 +82,18 @@ final class NotificationLifecycleTest extends TestCase
         $entityManager->flush();
         $id = $notification->getId();
 
+        // A null env_vars argument inherits the current process environment,
+        // NOFI_TEST_POSTGRES_DSN included. Passing an explicit array here
+        // instead replaces the whole environment rather than extending it,
+        // which drops PHP_MEMORY_LIMIT and made the worker print a "Failed to
+        // set memory limit" warning ahead of its first line of real output.
         $process = proc_open([
             PHP_BINARY,
             dirname(__DIR__) . '/Support/notification-lock-worker.php',
             $this->schema,
             $id,
             $second,
-        ], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, null, [
-            'NOFI_TEST_POSTGRES_DSN' => $this->dsn,
-        ]);
+        ], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, null, null);
         self::assertIsResource($process);
         stream_set_timeout($pipes[1], 10);
 

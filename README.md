@@ -1158,17 +1158,20 @@ does not provide exactly-once delivery.
 
 ### Testing concurrency
 
-The ordinary suite uses SQLite. To also run the row-lock races, set
-`NOFI_TEST_POSTGRES_DSN` to a disposable PostgreSQL database:
+The ordinary suite uses SQLite. `NotificationLifecycleTest`, alongside the rest
+of the Integration suite, additionally proves the row-lock races, but only when
+`NOFI_TEST_POSTGRES_DSN` names a disposable PostgreSQL database — it skips
+itself otherwise:
 
 ```bash
 NOFI_TEST_POSTGRES_DSN=postgresql://nofi_test:nofi_test@127.0.0.1:5432/nofi_test \
-  php bin/phpunit --testsuite "PostgreSQL Concurrency Tests"
+  php bin/phpunit --filter NotificationLifecycleTest
 ```
 
-These tests use separate processes and connections, wait until PostgreSQL reports
-lock contention, and verify both operation orderings. Each test creates and drops
-its own temporary schema. CI supplies PostgreSQL and runs them with the suite.
+It uses separate processes and connections, waits until PostgreSQL reports lock
+contention, and verifies both operation orderings. Each run creates and drops its
+own temporary schema. CI supplies PostgreSQL and runs it as part of the ordinary
+`phpunit` job.
 
 ### Deploying the queue format change
 
