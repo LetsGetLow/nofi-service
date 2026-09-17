@@ -7,6 +7,7 @@ namespace Nofi\Dto;
 use DateTimeImmutable;
 use Nofi\Dto\AttachmentDto;
 use Nofi\Notification\Email\MailTemplateLocator;
+use Nofi\Validator\AttachmentLimitsRespected;
 use Nofi\Validator\MailTemplateExists;
 use Nofi\Notification\NotificationChannel;
 use Nofi\Notification\Push\PushTopic;
@@ -18,14 +19,6 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 #[Assert\Callback("validateChannelSpecificFields")]
 final class SendNotificationDto
 {
-    /**
-     * Attachments travel inside the queued message, so the ceiling keeps a
-     * single send from bloating the messenger_messages row.
-     */
-    public const int MAX_TOTAL_ATTACHMENT_BYTES = 5 * 1024 * 1024;
-
-    public const int MAX_ATTACHMENTS = 10;
-
     // No Assert\DateTime here: it validates strings, and this property is
     // already a DateTimeImmutable by the time validation runs. A malformed
     // value fails denormalization before it ever reaches the validator.
@@ -104,12 +97,13 @@ final class SendNotificationDto
     #[ApiProperty(
         description: "Email only. Files sent with the mail, content base64 encoded. Give a contentId "
             . "to embed one in the HTML body and reference it there as <img src=\"cid:THE-CONTENT-ID\">; "
-            . "without it the file is a normal attachment. At most 10 files, 5 MB decoded in total. "
+            . "without it the file is a normal attachment. The number of files and their total decoded "
+            . "size are capped, both configurable deployment limits. "
             . "Only the metadata is kept afterwards, never the bytes.",
     )]
     #[Assert\Valid]
     #[Assert\Type(type: "array", message: "Attachments must be an array")]
-    #[Assert\Count(max: self::MAX_ATTACHMENTS, maxMessage: "At most {{ limit }} attachments are allowed")]
+    #[AttachmentLimitsRespected]
     public array $attachments = [];
 
     /**
@@ -202,30 +196,6 @@ final class SendNotificationDto
         }
     }
 
-    /**
-     * The whole message, attachments included, is serialised into the queue,
-     * so the total is capped rather than the size of any single file.
-     */
-    private function validateAttachmentSize(ExecutionContextInterface $context): void
-    {
-        $total = 0;
-        foreach ($this->attachments as $attachment) {
-            if ($attachment instanceof AttachmentDto) {
-                $total += $attachment->decodedSize();
-            }
-        }
-
-        if ($total > self::MAX_TOTAL_ATTACHMENT_BYTES) {
-            $context->buildViolation(
-                "Attachments must not exceed {{ limit }} bytes in total, got {{ actual }}",
-            )
-                ->setParameter("{{ limit }}", (string) self::MAX_TOTAL_ATTACHMENT_BYTES)
-                ->setParameter("{{ actual }}", (string) $total)
-                ->atPath("attachments")
-                ->addViolation();
-        }
-    }
-
     public function validateEmailFields(ExecutionContextInterface $context): void
     {
         if (empty($this->sender)) {
@@ -258,7 +228,6 @@ final class SendNotificationDto
         }
 
 
-        $this->validateAttachmentSize($context);
         $this->validateInlineAttachmentsAreReferenced($context);
 
         foreach ($this->recipients as $index => $recipient) {

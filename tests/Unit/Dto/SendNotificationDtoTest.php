@@ -7,7 +7,12 @@ namespace Nofi\Tests\Unit\Dto;
 use DateTimeImmutable;
 use Nofi\Dto\AttachmentDto;
 use Nofi\Dto\SendNotificationDto;
+use Nofi\Notification\Email\AttachmentLimits;
 use Nofi\Notification\NotificationChannel;
+use Nofi\Validator\AttachmentLimitsRespected;
+use Nofi\Validator\AttachmentLimitsRespectedValidator;
+use Nofi\Validator\EmbeddableAttachmentFormat;
+use Nofi\Validator\EmbeddableAttachmentFormatValidator;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -33,30 +38,46 @@ final class SendNotificationDtoTest extends TestCase
 
     private ValidatorInterface $validator;
 
+    private AttachmentLimits $attachmentLimits;
+
     protected function setUp(): void
     {
-        // MailTemplateExists needs the locator, so the factory has to supply
-        // it; everything else falls through to the default.
+        // MailTemplateExists and the attachment constraints each need a
+        // service the default factory cannot construct, so the factory
+        // supplies those; everything else falls through to the default.
         $locator = new MailTemplateLocator(
             new Environment(new ArrayLoader(['@mail/example.html.twig' => 'x'])),
+        );
+        $this->attachmentLimits = new AttachmentLimits(
+            maxAttachments: 10,
+            maxTotalAttachmentBytes: 5 * 1024 * 1024,
+            allowedInlineContentTypes: ["image/png", "image/jpeg", "image/gif"],
         );
 
         $this->validator = Validation::createValidatorBuilder()
             ->enableAttributeMapping()
             ->setConstraintValidatorFactory(
-                new class ($locator) implements ConstraintValidatorFactoryInterface {
+                new class ($locator, $this->attachmentLimits) implements ConstraintValidatorFactoryInterface {
                     private ConstraintValidatorFactory $default;
 
-                    public function __construct(private MailTemplateLocator $locator)
-                    {
+                    public function __construct(
+                        private MailTemplateLocator $locator,
+                        private AttachmentLimits $attachmentLimits,
+                    ) {
                         $this->default = new ConstraintValidatorFactory();
                     }
 
                     public function getInstance(Constraint $constraint): ConstraintValidatorInterface
                     {
-                        return $constraint instanceof MailTemplateExists
-                            ? new MailTemplateExistsValidator($this->locator)
-                            : $this->default->getInstance($constraint);
+                        return match (true) {
+                            $constraint instanceof MailTemplateExists
+                                => new MailTemplateExistsValidator($this->locator),
+                            $constraint instanceof AttachmentLimitsRespected
+                                => new AttachmentLimitsRespectedValidator($this->attachmentLimits),
+                            $constraint instanceof EmbeddableAttachmentFormat
+                                => new EmbeddableAttachmentFormatValidator($this->attachmentLimits),
+                            default => $this->default->getInstance($constraint),
+                        };
                     }
                 },
             )
@@ -304,7 +325,7 @@ final class SendNotificationDtoTest extends TestCase
     {
         $dto = $this->emailDto();
         $oversized = $this->attachment();
-        $oversized->content = base64_encode(str_repeat('x', SendNotificationDto::MAX_TOTAL_ATTACHMENT_BYTES + 1));
+        $oversized->content = base64_encode(str_repeat('x', $this->attachmentLimits->maxTotalAttachmentBytes + 1));
         $dto->attachments = [$oversized];
 
         self::assertArrayHasKey('attachments', $this->violations($dto));

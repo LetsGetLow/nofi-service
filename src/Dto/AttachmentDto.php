@@ -4,24 +4,15 @@ declare(strict_types=1);
 
 namespace Nofi\Dto;
 
+use Nofi\Validator\EmbeddableAttachmentFormat;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 use function base64_decode;
-use function getimagesizefromstring;
-use function in_array;
-use function strtolower;
 
+#[EmbeddableAttachmentFormat]
 final class AttachmentDto
 {
-    /**
-     * Formats mail clients reliably render inline. Symfony embeds anything it
-     * is given without complaint, so a TIFF or a PDF would be delivered as a
-     * broken image with no error anywhere; refuse those here instead. Widen
-     * this list deliberately if a recipient base is known to cope.
-     */
-    public const array INLINE_CONTENT_TYPES = ["image/png", "image/jpeg", "image/gif"];
-
     /** Long enough for any sensible filename, short enough to keep headers sane. */
     public const int MAX_FILENAME_LENGTH = 255;
 
@@ -82,65 +73,6 @@ final class AttachmentDto
                 ->atPath("content")
                 ->addViolation();
         }
-    }
-
-    /**
-     * The declared contentType is only a claim, so the bytes decide. Symfony
-     * embeds whatever it is handed, and an unrenderable format reaches the
-     * recipient as a broken image with nothing logged anywhere.
-     */
-    #[Assert\Callback]
-    public function validateFormatCanBeEmbedded(ExecutionContextInterface $context): void
-    {
-        if ($this->contentId === null || $this->content === null) {
-            return;
-        }
-
-        $decoded = base64_decode($this->content, true);
-        if ($decoded === false) {
-            // Reported separately by validateContentIsBase64().
-            return;
-        }
-
-        // getimagesizefromstring() returns false for anything it cannot read,
-        // and subscripting that was an "array offset on bool" warning the @
-        // was quietly swallowing. The guard says the same thing out loud.
-        $image = @getimagesizefromstring($decoded);
-        $detected = is_array($image) ? ($image["mime"] ?? null) : null;
-
-        if ($detected === null) {
-            $this->rejectEmbedding($context, "the file is not a readable image");
-
-            return;
-        }
-
-        if (!in_array(strtolower($detected), self::INLINE_CONTENT_TYPES, true)) {
-            $this->rejectEmbedding(
-                $context,
-                sprintf("%s cannot be embedded, only %s can", $detected, implode(", ", self::INLINE_CONTENT_TYPES)),
-            );
-
-            return;
-        }
-
-        $declared = strtolower((string) $this->contentType);
-        if ($declared !== "" && $declared !== strtolower($detected)) {
-            $this->rejectEmbedding(
-                $context,
-                sprintf("contentType says %s but the file is %s", $declared, $detected),
-            );
-        }
-    }
-
-    private function rejectEmbedding(ExecutionContextInterface $context, string $reason): void
-    {
-        $context->buildViolation(
-            'This file format cannot be used as an embedded ContentID: {{ reason }}. '
-            . 'Omit contentId to send it as a regular attachment instead.',
-        )
-            ->setParameter("{{ reason }}", $reason)
-            ->atPath("contentId")
-            ->addViolation();
     }
 
     public function decodedSize(): int
