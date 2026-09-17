@@ -485,33 +485,34 @@ request carrying a `contentId` is therefore rejected with `422` when:
 | the message never references `cid:<contentId>` | the part would be silently orphaned |
 
 The format is read from the file itself rather than trusted from
-`contentType`, so a mislabelled file is caught too. Renderable formats are
-`image/png`, `image/jpeg` and `image/gif`
-(`AttachmentDto::INLINE_CONTENT_TYPES`) — widen that list deliberately if your
-recipients are known to cope with more. Every format remains fine as an
+`contentType`, so a mislabelled file is caught too. Renderable formats default
+to `image/png`, `image/jpeg` and `image/gif`, configured in `.env` as
+`ALLOWED_INLINE_ATTACHMENT_CONTENT_TYPES` — widen that list deliberately if
+your recipients are known to cope with more. Every format remains fine as an
 ordinary attachment: just omit `contentId`.
 
-**Limits.** At most 10 files and 5 MB decoded in total
-(`SendNotificationDto::MAX_TOTAL_ATTACHMENT_BYTES`). The cap is on the total
-rather than per file because the whole message, attachments included, is
-serialised into a single `messenger_messages` row. Push notifications cannot
-carry attachments.
+**Limits.** At most `MAX_ATTACHMENTS` files (default 10) and
+`MAX_TOTAL_ATTACHMENT_BYTES` decoded bytes in total (default 5 MB), both in
+`.env`. The cap is on the total rather than per file because the whole
+message, attachments included, is serialised into a single
+`messenger_messages` row. Push notifications cannot carry attachments.
 
-Both are constants in `src/Dto/SendNotificationDto.php`, not environment
-variables: changing them means editing the class — a `docker compose restart
-php` in development, where `./src` is mounted, and a rebuilt image in
-production.
+All three are environment variables, read into the `AttachmentLimits` service
+(`src/Notification/Email/AttachmentLimits.php`) and enforced by
+`AttachmentLimitsRespectedValidator` and `EmbeddableAttachmentFormatValidator`
+in `src/Validator/`. Changing them needs the container recreated —
+`docker compose up -d`, not restart — same as any other `.env` value.
 
-Behind them sits a second ceiling, `PHP_POST_MAX_SIZE` in `.env`, which is a
-real variable. It is the largest body PHP will accept, and it is enforced
-before any application code runs: an oversized request is discarded, so the
-caller gets a deserialisation error on an empty payload rather than the
-violation above. Base64 inflates attachments by a third, so 5 MB of files is
-nearly 7 MB on the wire; the 32M default leaves the application limit as the
-one callers actually hit, which is the one that explains itself. Raise the
-constants far and this needs raising too — along with `PHP_MEMORY_LIMIT`, since
-PHP has to hold and decode what it accepted, and `MESSENGER_MEMORY_LIMIT`,
-since a worker holds the attachments in memory.
+Behind them sits a second ceiling, `PHP_POST_MAX_SIZE` in `.env`. It is the
+largest body PHP will accept, and it is enforced before any application code
+runs: an oversized request is discarded, so the caller gets a deserialisation
+error on an empty payload rather than the violation above. Base64 inflates
+attachments by a third, so 5 MB of files is nearly 7 MB on the wire; the 32M
+default leaves the application limit as the one callers actually hit, which is
+the one that explains itself. Raise `MAX_TOTAL_ATTACHMENT_BYTES` far and this
+needs raising too — along with `PHP_MEMORY_LIMIT`, since PHP has to hold and
+decode what it accepted, and `MESSENGER_MEMORY_LIMIT`, since a worker holds
+the attachments in memory.
 
 **Storage.** Only metadata — filename, content type, content id, size — is
 written to the `notification` table. The bytes travel in the queued message and
@@ -815,8 +816,7 @@ The workers are sized in `.env`: `MESSENGER_NUM_WORKERS` is how many run, and
 Compose restarts it. The limit is a restart threshold rather than a cap — the
 point is to shed what a long running process accumulates. A send holds its
 attachments in memory, so raise it whenever the attachment limits go up —
-`MAX_TOTAL_ATTACHMENT_BYTES` in `src/Dto/SendNotificationDto.php`, and
-`PHP_POST_MAX_SIZE` in `.env`.
+`MAX_TOTAL_ATTACHMENT_BYTES` and `PHP_POST_MAX_SIZE`, both in `.env`.
 
 Underneath it sits a hard ceiling, `PHP_WORKER_MEMORY_LIMIT`: PHP's own
 `memory_limit` for a worker process. The two are not alternatives. Messenger
@@ -1020,6 +1020,7 @@ the format. Values come from `.env` and its overrides; the YAML under
 | `HTTP_PORT`, `HTTPS_PORT` — where the php container is published | `compose.yaml` | [Compose services reference](https://docs.docker.com/reference/compose-file/services/), [interpolation](https://docs.docker.com/reference/compose-file/interpolation/) |
 | `PHP_POST_MAX_SIZE`, `PHP_MEMORY_LIMIT`, `PHP_WORKER_MEMORY_LIMIT` — largest request body PHP accepts, and the memory a request and a worker may each use | `Dockerfile.frankenphp` writes `conf.d/zz-runtime.ini`, `compose.yaml` passes the values | [post_max_size](https://www.php.net/manual/en/ini.core.php#ini.post-max-size), [memory_limit](https://www.php.net/manual/en/ini.core.php#ini.memory-limit), [ini variable interpolation](https://www.php.net/manual/en/configuration.file.php) |
 | `MESSENGER_NUM_WORKERS`, `MESSENGER_MEMORY_LIMIT` | `compose.yaml` | [Running the worker](https://symfony.com/doc/current/messenger.html#consuming-messages-running-the-worker) |
+| `MAX_ATTACHMENTS`, `MAX_TOTAL_ATTACHMENT_BYTES`, `ALLOWED_INLINE_ATTACHMENT_CONTENT_TYPES` | `src/Notification/Email/AttachmentLimits.php`, enforced in `src/Validator/` | [Environment variables](https://symfony.com/doc/current/configuration.html#configuration-based-on-environment-variables) |
 | `MESSENGER_TRANSPORT_DSN`, retries, failure transport | `config/packages/messenger.yaml` | [Messenger](https://symfony.com/doc/current/messenger.html), [transport DSNs](https://symfony.com/doc/current/messenger.html#messenger-transports-config) |
 | `MAILER_DSN` | `.env`, `.env.dev` | [Mailer transports](https://symfony.com/doc/current/mailer.html#using-built-in-transports), [third-party relays](https://symfony.com/doc/current/mailer.html#using-a-3rd-party-transport) |
 | `JWT_SECRET_KEY`, `JWT_PUBLIC_KEY`, `JWT_PASSPHRASE`, token TTL | `config/packages/lexik_jwt_authentication.yaml` | [LexikJWTAuthenticationBundle](https://symfony.com/bundles/LexikJWTAuthenticationBundle/current/index.html) |
