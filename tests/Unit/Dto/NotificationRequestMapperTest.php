@@ -52,7 +52,28 @@ final class NotificationRequestMapperTest extends TestCase
             "\x00\xffpdf",
             file_get_contents($storage->absolutePath($request->payload->attachments[0]->path)),
         );
-        self::assertSame($schedule, $request->scheduledAt);
+        // Normalised to UTC, not the same object, but the same real instant.
+        self::assertNotSame($schedule, $request->scheduledAt);
+        self::assertSame($schedule->getTimestamp(), $request->scheduledAt->getTimestamp());
+        self::assertSame('UTC', $request->scheduledAt->getTimezone()->getName());
+    }
+
+    #[Test]
+    public function scheduledAtIsNormalisedToUtcRegardlessOfTheOffsetSent(): void
+    {
+        $dto = new SendNotificationDto();
+        $dto->channel = NotificationChannel::EMAIL;
+        $dto->sender = 'sender@example.com';
+        $dto->subject = 'Invoice';
+        $dto->message = 'Body';
+        $dto->recipients = ['alice@example.com'];
+        // German summer time: 11:09 CEST is 09:09 UTC, not the same
+        // wall-clock digits Doctrine would otherwise store verbatim.
+        $dto->scheduledAt = new DateTimeImmutable('2026-09-18T11:09:00+02:00');
+
+        $request = $this->mapper()->map($dto);
+
+        self::assertSame('2026-09-18T09:09:00+00:00', $request->scheduledAt->format('c'));
     }
 
     #[Test]

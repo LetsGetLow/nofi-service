@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Nofi\Dto;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use InvalidArgumentException;
 use LogicException;
 use Nofi\Notification\Email\AttachmentStorage;
@@ -36,7 +38,20 @@ final readonly class NotificationRequestMapper
                 static fn (string $topic): string => PushTopic::PREFIX . $topic,
                 array_values($dto->topics),
             ),
-        ], $dto->scheduledAt);
+        ], $this->toUtc($dto->scheduledAt));
+    }
+
+    /**
+     * Doctrine's DATETIME_IMMUTABLE column formats the value as given, rather
+     * than converting to UTC first, so a non-UTC offset would otherwise be
+     * stored (and read back) as if it were UTC — same wall-clock digits, a
+     * different real instant. The delay used to dispatch is computed from
+     * getTimestamp() and is unaffected either way, but the persisted and
+     * API-visible scheduledAt would silently lie about when that is.
+     */
+    private function toUtc(?DateTimeImmutable $scheduledAt): ?DateTimeImmutable
+    {
+        return $scheduledAt?->setTimezone(new DateTimeZone("UTC"));
     }
 
     public function emailPayload(SendNotificationDto $dto): EmailNotificationPayload
