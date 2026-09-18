@@ -18,10 +18,10 @@ use Symfony\Component\Messenger\Transport\Serialization\PhpSerializer;
 final class NotificationMessageTest extends TestCase
 {
     #[Test]
-    public function emailSurvivesQueueSerializationWithBinaryAttachmentContent(): void
+    public function emailSurvivesQueueSerializationWithAttachmentPath(): void
     {
         $payload = new EmailNotificationPayload('sender@example.com', 'Subject', 'Body', 'welcome', [
-            new EmailAttachment('logo.png', 'image/png', "\x00\xff\x80image", 'logo'),
+            new EmailAttachment('logo.png', 'image/png', 'attachments/abc', 11, 'logo'),
         ], ['name' => 'Alice']);
         $message = new SendEmailNotification('notification-1', $payload);
         $serializer = new PhpSerializer();
@@ -33,7 +33,7 @@ final class NotificationMessageTest extends TestCase
         self::assertInstanceOf(SendEmailNotification::class, $restored);
         self::assertSame('notification-1', $restored->getNotificationId());
         self::assertEquals($payload, $restored->getPayload());
-        self::assertSame("\x00\xff\x80image", $restored->getPayload()->attachments[0]->content);
+        self::assertSame('attachments/abc', $restored->getPayload()->attachments[0]->path);
         self::assertSame('logo', $restored->getPayload()->attachments[0]->contentId);
         self::assertSame(1000, $decoded->last(DelayStamp::class)->getDelay());
         self::assertStringNotContainsString('Nofi\\Dto\\', serialize($restored));

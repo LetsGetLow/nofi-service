@@ -6,6 +6,7 @@ namespace Nofi\Tests\Unit\Dto;
 
 use Nofi\Dto\NotificationRequestMapper;
 use Nofi\Dto\AttachmentDto;
+use Nofi\Notification\Email\AttachmentStorage;
 use Nofi\Notification\Email\EmailAttachment;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\Test;
@@ -18,12 +19,13 @@ final class EmailAttachmentMappingTest extends TestCase
     #[Test]
     public function mappingDecodesTheContent(): void
     {
-        $attachment = new NotificationRequestMapper()->attachment($this->dto());
+        $storage = $this->storage();
+        $attachment = $this->mapper($storage)->attachment($this->dto());
 
         self::assertSame('invoice.pdf', $attachment->filename);
         self::assertSame('application/pdf', $attachment->contentType);
-        self::assertSame('pdf-bytes', $attachment->content);
-        self::assertSame(strlen('pdf-bytes'), $attachment->size());
+        self::assertSame('pdf-bytes', file_get_contents($storage->absolutePath($attachment->path)));
+        self::assertSame(strlen('pdf-bytes'), $attachment->size);
         self::assertFalse($attachment->isInline());
     }
 
@@ -35,7 +37,7 @@ final class EmailAttachmentMappingTest extends TestCase
 
         self::assertSame(
             EmailAttachment::DEFAULT_CONTENT_TYPE,
-            new NotificationRequestMapper()->attachment($dto)->contentType,
+            $this->mapper()->attachment($dto)->contentType,
         );
     }
 
@@ -45,7 +47,7 @@ final class EmailAttachmentMappingTest extends TestCase
         $dto = $this->dto();
         $dto->contentId = 'logo';
 
-        self::assertTrue(new NotificationRequestMapper()->attachment($dto)->isInline());
+        self::assertTrue($this->mapper()->attachment($dto)->isInline());
     }
 
     #[Test]
@@ -56,7 +58,7 @@ final class EmailAttachmentMappingTest extends TestCase
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Attachment is incomplete.');
-        new NotificationRequestMapper()->attachment($dto);
+        $this->mapper()->attachment($dto);
     }
 
     #[Test]
@@ -66,7 +68,7 @@ final class EmailAttachmentMappingTest extends TestCase
         $dto->content = null;
 
         $this->expectException(InvalidArgumentException::class);
-        new NotificationRequestMapper()->attachment($dto);
+        $this->mapper()->attachment($dto);
     }
 
     #[Test]
@@ -77,7 +79,17 @@ final class EmailAttachmentMappingTest extends TestCase
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('"invoice.pdf" is not valid base64');
-        new NotificationRequestMapper()->attachment($dto);
+        $this->mapper()->attachment($dto);
+    }
+
+    private function mapper(?AttachmentStorage $storage = null): NotificationRequestMapper
+    {
+        return new NotificationRequestMapper($storage ?? $this->storage());
+    }
+
+    private function storage(): AttachmentStorage
+    {
+        return new AttachmentStorage(sys_get_temp_dir());
     }
 
     private function dto(): AttachmentDto

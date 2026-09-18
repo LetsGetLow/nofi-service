@@ -38,15 +38,17 @@ final readonly class EmailNotificationPayload implements NotificationPayload
             "subject" => $this->subject,
             "message" => $this->message,
             "template" => $this->template,
-            // Only metadata: the content already travels in the queued
-            // message, and persisting it again would duplicate every
-            // attachment in the notification table.
+            // Content lives on disk (AttachmentStorage), not here — this is
+            // metadata, plus the path (relative to AttachmentStorage's share
+            // directory) so a cancel or delete can clean the file up without
+            // having to deserialise a queued message.
             "attachments" => array_map(
                 static fn (EmailAttachment $attachment): array => [
                     "filename" => $attachment->filename,
                     "contentType" => $attachment->contentType,
                     "contentId" => $attachment->contentId,
-                    "size" => $attachment->size(),
+                    "size" => $attachment->size,
+                    "path" => $attachment->path,
                 ],
                 $this->attachments,
             ),

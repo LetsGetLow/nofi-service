@@ -7,6 +7,7 @@ namespace Nofi\Tests\Unit\Dto;
 use Nofi\Dto\NotificationRequestMapper;
 use Nofi\Dto\AttachmentDto;
 use Nofi\Dto\SendNotificationDto;
+use Nofi\Notification\Email\AttachmentStorage;
 use Nofi\Notification\Email\EmailNotificationPayload;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\Test;
@@ -31,7 +32,8 @@ final class EmailNotificationPayloadMappingTest extends TestCase
         $dto->attachments = [$attachment];
         $dto->data = ["name" => "Ada"];
 
-        $payload = new NotificationRequestMapper()->emailPayload($dto);
+        $storage = new AttachmentStorage(sys_get_temp_dir());
+        $payload = $this->mapper($storage)->emailPayload($dto);
 
         self::assertInstanceOf(EmailNotificationPayload::class, $payload);
         self::assertSame("noreply@example.com", $payload->sender);
@@ -41,7 +43,7 @@ final class EmailNotificationPayloadMappingTest extends TestCase
         self::assertCount(1, $payload->attachments);
         self::assertSame("terms.pdf", $payload->attachments[0]->filename);
         self::assertSame("application/pdf", $payload->attachments[0]->contentType);
-        self::assertSame("pdf-bytes", $payload->attachments[0]->content);
+        self::assertSame("pdf-bytes", file_get_contents($storage->absolutePath($payload->attachments[0]->path)));
         self::assertFalse($payload->attachments[0]->isInline());
         self::assertSame(["name" => "Ada"], $payload->data);
     }
@@ -51,6 +53,11 @@ final class EmailNotificationPayloadMappingTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        new NotificationRequestMapper()->emailPayload(new SendNotificationDto());
+        $this->mapper()->emailPayload(new SendNotificationDto());
+    }
+
+    private function mapper(?AttachmentStorage $storage = null): NotificationRequestMapper
+    {
+        return new NotificationRequestMapper($storage ?? new AttachmentStorage(sys_get_temp_dir()));
     }
 }

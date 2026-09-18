@@ -6,9 +6,11 @@ namespace Nofi\Tests\Integration;
 
 use Nofi\Entity\Notification;
 use Nofi\Entity\User;
+use Nofi\Notification\Email\AttachmentStorage;
 use Nofi\Notification\Email\EmailAttachment;
 use Nofi\Notification\Email\EmailNotificationPayload;
 use Nofi\Notification\Email\MailTemplateLocator;
+use Nofi\Notification\NotificationAttachmentCleaner;
 use Nofi\Notification\NotificationStatus;
 use Nofi\Notification\Email\EmailNotificationDelivery;
 use Psr\Log\LoggerInterface;
@@ -96,7 +98,7 @@ final class EmailDeliveryTest extends IntegrationTestCase
             'Welcome',
             '<p>hi</p><img src="cid:logo">',
             null,
-            [new EmailAttachment('logo.png', 'image/png', 'png-bytes', 'logo')],
+            [$this->attachment('logo.png', 'image/png', 'png-bytes', 'logo')],
         );
 
         self::service(EmailNotificationDelivery::class)->deliver($notification, $payload);
@@ -104,6 +106,56 @@ final class EmailDeliveryTest extends IntegrationTestCase
         $rendered = $this->sentEmails()[0]->toString();
         self::assertStringContainsString('Content-Disposition: inline', $rendered);
         self::assertStringNotContainsString('src="cid:logo"', $rendered);
+    }
+
+    #[Test]
+    public function aSuccessfulDeliveryRemovesTheAttachmentFile(): void
+    {
+        $notification = $this->notification(['ops@example.com']);
+        $attachment = $this->attachment('logo.png', 'image/png', 'png-bytes');
+        $payload = new EmailNotificationPayload(
+            'noreply@example.com',
+            'Welcome',
+            '<p>hi</p>',
+            null,
+            [$attachment],
+        );
+        $notification->assignPayload($payload->toPayloadData());
+        self::entityManager()->flush();
+
+        self::service(EmailNotificationDelivery::class)->deliver($notification, $payload);
+
+        self::assertFileDoesNotExist(
+            self::service(AttachmentStorage::class)->absolutePath($attachment->path),
+            'every recipient succeeded, so nothing needs the file anymore',
+        );
+    }
+
+    #[Test]
+    public function aFailedDeliveryKeepsTheAttachmentFileForARetry(): void
+    {
+        $notification = $this->notification(['ops@example.com', 'broken@example.com']);
+        $attachment = $this->attachment('invoice.pdf', 'application/pdf', 'pdf-bytes');
+        $payload = new EmailNotificationPayload(
+            'noreply@example.com',
+            'Invoice',
+            '<p>See attached</p>',
+            null,
+            [$attachment],
+        );
+        $notification->assignPayload($payload->toPayloadData());
+        self::entityManager()->flush();
+
+        try {
+            $this->deliveryWithMailerFailingFor(['broken@example.com'])->deliver($notification, $payload);
+            self::fail('Expected the failed recipient to raise.');
+        } catch (RuntimeException) {
+            // asserted elsewhere
+        }
+
+        $storage = self::service(AttachmentStorage::class);
+        self::assertFileExists($storage->absolutePath($attachment->path), 'a retry still needs the file');
+        $storage->delete($attachment->path);
     }
 
     #[Test]
@@ -245,6 +297,8 @@ final class EmailDeliveryTest extends IntegrationTestCase
             $mailer,
             $logger ?? $this->createStub(LoggerInterface::class),
             self::service(MailTemplateLocator::class),
+            self::service(NotificationAttachmentCleaner::class),
+            self::service(AttachmentStorage::class),
         );
     }
 
@@ -267,6 +321,21 @@ final class EmailDeliveryTest extends IntegrationTestCase
         self::entityManager()->flush();
 
         return $notification;
+    }
+
+    private function attachment(
+        string $filename,
+        string $contentType,
+        string $content,
+        ?string $contentId = null,
+    ): EmailAttachment {
+        return new EmailAttachment(
+            $filename,
+            $contentType,
+            self::service(AttachmentStorage::class)->write($content),
+            strlen($content),
+            $contentId,
+        );
     }
 
     private function payload(): EmailNotificationPayload

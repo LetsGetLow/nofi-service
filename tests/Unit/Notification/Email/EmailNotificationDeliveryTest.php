@@ -6,8 +6,10 @@ namespace Nofi\Tests\Unit\Notification\Email;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Nofi\Entity\Notification;
+use Nofi\Notification\Email\AttachmentStorage;
 use Nofi\Notification\Email\EmailAttachment;
 use Nofi\Notification\Email\EmailNotificationPayload;
+use Nofi\Notification\NotificationAttachmentCleaner;
 use Nofi\Notification\NotificationStatus;
 use Nofi\Notification\Email\EmailNotificationDelivery;
 use PHPUnit\Framework\Attributes\Test;
@@ -16,6 +18,7 @@ use PHPUnit\Framework\TestCase;
 use Nofi\Notification\Email\MailTemplateLocator;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Mime\RawMessage;
@@ -25,6 +28,20 @@ use Twig\Loader\ArrayLoader;
 #[TestDox("EmailNotificationDelivery")]
 final class EmailNotificationDeliveryTest extends TestCase
 {
+    private string $shareDir;
+    private AttachmentStorage $storage;
+
+    protected function setUp(): void
+    {
+        $this->shareDir = sys_get_temp_dir() . '/nofi-delivery-test-' . bin2hex(random_bytes(8));
+        $this->storage = new AttachmentStorage($this->shareDir);
+    }
+
+    protected function tearDown(): void
+    {
+        new Filesystem()->remove($this->shareDir);
+    }
+
     #[Test]
     public function deliverMarksEveryRecipientSentWhenTheMailerAccepts(): void
     {
@@ -143,6 +160,24 @@ final class EmailNotificationDeliveryTest extends TestCase
             $mailer,
             $logger ?? $this->createStub(LoggerInterface::class),
             new MailTemplateLocator(new Environment(new ArrayLoader($templates))),
+            new NotificationAttachmentCleaner($this->storage),
+            $this->storage,
+        );
+    }
+
+    /** Writes a real file via AttachmentStorage: attachFromPath()/embedFromPath() read it for real. */
+    private function attachment(
+        string $filename,
+        string $contentType,
+        string $content,
+        ?string $contentId = null,
+    ): EmailAttachment {
+        return new EmailAttachment(
+            $filename,
+            $contentType,
+            $this->storage->write($content),
+            strlen($content),
+            $contentId,
         );
     }
 
@@ -163,7 +198,7 @@ final class EmailNotificationDeliveryTest extends TestCase
             'Invoice 4711',
             '<p>See attached</p>',
             null,
-            [new EmailAttachment('invoice-4711.pdf', 'application/pdf', 'pdf-bytes')],
+            [$this->attachment('invoice-4711.pdf', 'application/pdf', 'pdf-bytes')],
         );
 
         $this->deliveryWith($mailer)->deliver($notification, $payload);
@@ -198,7 +233,7 @@ final class EmailNotificationDeliveryTest extends TestCase
             'Welcome',
             '<p>Hi</p><img src="cid:logo">',
             null,
-            [new EmailAttachment('logo.png', 'image/png', 'png-bytes', 'logo')],
+            [$this->attachment('logo.png', 'image/png', 'png-bytes', 'logo')],
         );
 
         $this->deliveryWith($mailer)->deliver($notification, $payload);
@@ -232,8 +267,8 @@ final class EmailNotificationDeliveryTest extends TestCase
             '<p>See attached</p><img src="cid:logo">',
             null,
             [
-                new EmailAttachment('logo.png', 'image/png', 'png-bytes', 'logo'),
-                new EmailAttachment('invoice.pdf', 'application/pdf', 'pdf-bytes'),
+                $this->attachment('logo.png', 'image/png', 'png-bytes', 'logo'),
+                $this->attachment('invoice.pdf', 'application/pdf', 'pdf-bytes'),
             ],
         );
 

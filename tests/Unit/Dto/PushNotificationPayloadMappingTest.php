@@ -6,6 +6,7 @@ namespace Nofi\Tests\Unit\Dto;
 
 use Nofi\Dto\NotificationRequestMapper;
 use Nofi\Dto\SendNotificationDto;
+use Nofi\Notification\Email\AttachmentStorage;
 use Nofi\Notification\Push\PushNotificationPayload;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\Test;
@@ -24,7 +25,7 @@ final class PushNotificationPayloadMappingTest extends TestCase
         $dto->icon = "https://example.com/icon.png";
         $dto->data = ["url" => "https://example.com"];
 
-        $payload = new NotificationRequestMapper()->pushPayload($dto);
+        $payload = $this->mapper()->pushPayload($dto);
 
         self::assertInstanceOf(PushNotificationPayload::class, $payload);
         self::assertSame("Welcome", $payload->title);
@@ -38,7 +39,7 @@ final class PushNotificationPayloadMappingTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        new NotificationRequestMapper()->pushPayload(new SendNotificationDto());
+        $this->mapper()->pushPayload(new SendNotificationDto());
     }
 
     #[Test]
@@ -48,9 +49,14 @@ final class PushNotificationPayloadMappingTest extends TestCase
         $dto->title = "Welcome";
         $dto->message = "Hi there";
 
-        $payload = new NotificationRequestMapper()->pushPayload($dto);
+        $payload = $this->mapper()->pushPayload($dto);
 
         self::assertNull($payload->icon);
         self::assertSame([], $payload->data);
+    }
+
+    private function mapper(): NotificationRequestMapper
+    {
+        return new NotificationRequestMapper(new AttachmentStorage(sys_get_temp_dir()));
     }
 }

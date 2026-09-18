@@ -493,9 +493,9 @@ ordinary attachment: just omit `contentId`.
 
 **Limits.** At most `MAX_ATTACHMENTS` files (default 10) and
 `MAX_TOTAL_ATTACHMENT_BYTES` decoded bytes in total (default 5 MB), both in
-`.env`. The cap is on the total rather than per file because the whole
-message, attachments included, is serialised into a single
-`messenger_messages` row. Push notifications cannot carry attachments.
+`.env`. The cap is on the total rather than per file because it bounds how
+much a single request may write to disk (see Storage below) and hold in
+memory while doing so. Push notifications cannot carry attachments.
 
 All three are environment variables, read into the `AttachmentLimits` service
 (`src/Notification/Email/AttachmentLimits.php`) and enforced by
@@ -509,15 +509,37 @@ runs: an oversized request is discarded, so the caller gets a deserialisation
 error on an empty payload rather than the violation above. Base64 inflates
 attachments by a third, so 5 MB of files is nearly 7 MB on the wire; the 32M
 default leaves the application limit as the one callers actually hit, which is
-the one that explains itself. Raise `MAX_TOTAL_ATTACHMENT_BYTES` far and this
-needs raising too — along with `PHP_MEMORY_LIMIT`, since PHP has to hold and
-decode what it accepted, and `MESSENGER_MEMORY_LIMIT`, since a worker holds
-the attachments in memory.
+the one that explains itself. Raise `MAX_TOTAL_ATTACHMENT_BYTES` far and
+`PHP_MEMORY_LIMIT` needs raising too, since PHP has to hold and decode what it
+accepted before writing it to disk.
 
-**Storage.** Only metadata — filename, content type, content id, size — is
-written to the `notification` table. The bytes travel in the queued message and
-are gone once it is consumed, so a notification row never holds a copy of the
-file.
+**Storage.** Attachment bytes are written to disk under `%kernel.share_dir%`
+(`var/share/<environment>`, see `AttachmentStorage`), one file per attachment
+named for a fresh id — never the caller's filename, since the name a
+recipient sees comes from metadata passed separately to Symfony Mime, not
+from the path. Only a path *relative to that directory* travels in the queued
+message and is persisted — never the resolved absolute path — so changing
+`APP_SHARE_DIR` later cannot strand an already-queued or already-stored
+reference pointing at the old location; `AttachmentStorage::absolutePath()`
+is the only place that combines the two, at the point something actually
+reads or deletes the file. This also keeps a failed send's file content out
+of the `messenger_messages` table, where it would otherwise sit in Postgres
+for as long as the message stays in the `failed` transport, i.e. indefinitely
+(see Queue below). Only metadata — filename, content type, content id, size,
+relative path — is written to the `notification` table.
+
+The file is deleted once nothing can read it again: after every recipient is
+successfully delivered, or when the notification is cancelled or deleted
+before ever being attempted (none of those three ever reach delivery, so
+nothing needs the file afterwards). A `FAILED` notification's file is **not**
+cleaned up automatically — it can still be resent (`isResendable()`), including
+via `messenger:failed:retry`, and there is no path from `FAILED` back to
+`CANCELLED` or deletion. It persists until a retry eventually succeeds or an
+operator intervenes, the same open gap as the `notification_recipient`
+retention policy mentioned above — not solved here, just moved from a
+database row to a file. Similarly, a crash between writing the file and the
+notification/message being committed leaves an orphaned file with nothing
+pointing to it.
 
 ### Templates
 
@@ -814,9 +836,8 @@ NOFI_USERNAME=admin NOFI_PASSWORD=<password> NOFI_NUM_MESSAGES=100 ./load-test
 The workers are sized in `.env`: `MESSENGER_NUM_WORKERS` is how many run, and
 `MESSENGER_MEMORY_LIMIT` is how much memory one may use before it exits and
 Compose restarts it. The limit is a restart threshold rather than a cap — the
-point is to shed what a long running process accumulates. A send holds its
-attachments in memory, so raise it whenever the attachment limits go up —
-`MAX_TOTAL_ATTACHMENT_BYTES` and `PHP_POST_MAX_SIZE`, both in `.env`.
+point is to shed what a long running process accumulates. Raise it whenever
+`PHP_POST_MAX_SIZE` goes up, in `.env`.
 
 Underneath it sits a hard ceiling, `PHP_WORKER_MEMORY_LIMIT`: PHP's own
 `memory_limit` for a worker process. The two are not alternatives. Messenger
@@ -824,12 +845,17 @@ checks its threshold *between* messages and stops the worker cleanly, logging
 why, for Compose to start a fresh one; PHP's limit is a fatal error that kills
 the process wherever it happens to be, which can be mid-delivery with some
 recipients already marked sent. Keep the threshold below the ceiling so the
-graceful path always fires first. The gap has to cover what one message adds
-after the check passed, which is measurable: a send at the 5 MiB attachment cap
-costs about 52 MiB, the payload being resident four times over — raw, base64 in
-the queue row, decoded by the worker, and base64 again in the MIME body. The
-defaults leave a little under twice that, a 160M threshold under a 256M
-ceiling. Raise them together:
+graceful path always fires first.
+
+Attachment bytes no longer travel through this at all: they live on disk
+(see Attachments above) and `EmailNotificationDelivery` reads a file lazily,
+per recipient, via `attachFromPath()`/`embedFromPath()`, rather than holding
+decoded content in memory across the whole send. The 160M/256M defaults
+predate that change and were sized for attachments resident in memory four
+times over (raw, base64 in the queue row, decoded, and base64 again in the
+MIME body); they are likely conservative now, but lower them only after
+measuring a real worker under load rather than assuming. Raise them together
+if needed:
 
 ```bash
 MESSENGER_NUM_WORKERS=2 MESSENGER_MEMORY_LIMIT=512M PHP_WORKER_MEMORY_LIMIT=1G \
@@ -1028,6 +1054,7 @@ the format. Values come from `.env` and its overrides; the YAML under
 | `PHP_POST_MAX_SIZE`, `PHP_MEMORY_LIMIT`, `PHP_WORKER_MEMORY_LIMIT` — largest request body PHP accepts, and the memory a request and a worker may each use | `Dockerfile.frankenphp` writes `conf.d/zz-runtime.ini`, `compose.yaml` passes the values | [post_max_size](https://www.php.net/manual/en/ini.core.php#ini.post-max-size), [memory_limit](https://www.php.net/manual/en/ini.core.php#ini.memory-limit), [ini variable interpolation](https://www.php.net/manual/en/configuration.file.php) |
 | `MESSENGER_NUM_WORKERS`, `MESSENGER_MEMORY_LIMIT` | `compose.yaml` | [Running the worker](https://symfony.com/doc/current/messenger.html#consuming-messages-running-the-worker) |
 | `MAX_ATTACHMENTS`, `MAX_TOTAL_ATTACHMENT_BYTES`, `ALLOWED_INLINE_ATTACHMENT_CONTENT_TYPES` | `src/Notification/Email/AttachmentLimits.php`, enforced in `src/Validator/` | [Environment variables](https://symfony.com/doc/current/configuration.html#configuration-based-on-environment-variables) |
+| `APP_SHARE_DIR` — where attachment files are written, one per attachment (`var/share/<env>/attachments/<uuid>`) | `src/Notification/Email/AttachmentStorage.php`; `compose.yaml` shares `var_data` between `php` and `messenger-worker` | [Kernel share directory](https://symfony.com/doc/current/reference/configuration/framework.html) |
 | `MESSENGER_TRANSPORT_DSN`, retries, failure transport | `config/packages/messenger.yaml` | [Messenger](https://symfony.com/doc/current/messenger.html), [transport DSNs](https://symfony.com/doc/current/messenger.html#messenger-transports-config) |
 | `MAILER_DSN` | `.env`, `.env.dev` | [Mailer transports](https://symfony.com/doc/current/mailer.html#using-built-in-transports), [third-party relays](https://symfony.com/doc/current/mailer.html#using-a-3rd-party-transport) |
 | `JWT_SECRET_KEY`, `JWT_PUBLIC_KEY`, `JWT_PASSPHRASE`, token TTL | `config/packages/lexik_jwt_authentication.yaml` | [LexikJWTAuthenticationBundle](https://symfony.com/bundles/LexikJWTAuthenticationBundle/current/index.html) |
@@ -1120,8 +1147,9 @@ Compose is older than v2.24. Upgrade, or create an empty `.env.local`.
 
 The API validates `SendNotificationDto`, then `NotificationRequestMapper` converts
 it to an immutable `NotificationRequest` with a typed payload, delivery targets,
-and schedule. Attachment content is decoded at this boundary. Notification value
-objects do not depend on API DTOs or Symfony validation.
+and schedule. Attachment content is decoded and written to disk at this
+boundary (`AttachmentStorage`). Notification value objects do not depend on
+API DTOs or Symfony validation.
 
 `SendNotificationService` records that request using the authenticated user ID
 and dispatches a channel-specific message containing the notification ID and

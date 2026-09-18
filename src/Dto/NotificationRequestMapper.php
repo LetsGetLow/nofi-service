@@ -6,6 +6,7 @@ namespace Nofi\Dto;
 
 use InvalidArgumentException;
 use LogicException;
+use Nofi\Notification\Email\AttachmentStorage;
 use Nofi\Notification\Email\EmailAttachment;
 use Nofi\Notification\Email\EmailNotificationPayload;
 use Nofi\Notification\NotificationChannel;
@@ -16,6 +17,10 @@ use Nofi\Notification\Push\PushTopic;
 /** Converts validated API input into the values used by the application. */
 final readonly class NotificationRequestMapper
 {
+    public function __construct(private AttachmentStorage $attachmentStorage)
+    {
+    }
+
     public function map(SendNotificationDto $dto): NotificationRequest
     {
         $channel = $dto->channel ?? throw new LogicException("A notification cannot be sent without a channel.");
@@ -77,10 +82,13 @@ final readonly class NotificationRequestMapper
             );
         }
 
+        $path = $this->attachmentStorage->write($content);
+
         return new EmailAttachment(
             $dto->filename,
             $dto->contentType ?? EmailAttachment::DEFAULT_CONTENT_TYPE,
-            $content,
+            $path,
+            strlen($content),
             $dto->contentId,
         );
     }

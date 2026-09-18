@@ -54,14 +54,16 @@ readonly class NotificationLifecycle
         });
     }
 
-    public function deleteNotification(string $id): void
+    public function deleteNotification(string $id): ?Notification
     {
-        $this->entityManager->wrapInTransaction(function () use ($id): void {
+        return $this->entityManager->wrapInTransaction(function () use ($id): ?Notification {
             $notification = $this->getLockedNotification($id);
             if ($notification !== null) {
                 $this->assertNotificationCanBeDeleted($notification);
                 $this->entityManager->remove($notification);
             }
+
+            return $notification;
         });
     }
 

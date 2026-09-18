@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nofi\Tests\Application;
 
 use Nofi\Entity\Notification;
+use Nofi\Notification\Email\AttachmentStorage;
 use Symfony\Bundle\FrameworkBundle\Test\MailerAssertionsTrait;
 use Override;
 use PHPUnit\Framework\Attributes\Test;
@@ -90,6 +91,19 @@ final class DeleteNotificationTest extends ApiTestCase
     }
 
     #[Test]
+    public function deletingRemovesTheAttachmentFile(): void
+    {
+        $id = $this->sendWithAttachment();
+        $path = $this->attachmentPath($id);
+        self::assertFileExists($path);
+
+        $this->request('DELETE', $id, $this->token);
+
+        $this->assertResponseStatus(Response::HTTP_NO_CONTENT);
+        self::assertFileDoesNotExist($path);
+    }
+
+    #[Test]
     public function deletingRequiresAnAdmin(): void
     {
         $this->request('DELETE', $this->id, $this->tokenFor($this->createUser('alice')));
@@ -147,5 +161,32 @@ final class DeleteNotificationTest extends ApiTestCase
         return self::entityManager()
             ->getRepository(Notification::class)
             ->find(basename($this->id));
+    }
+
+    private function sendWithAttachment(): string
+    {
+        $this->request('POST', '/api/v1/notifications/send', $this->token, [
+            'channel' => 'email',
+            'sender' => 'noreply@example.com',
+            'subject' => 'Invoice',
+            'message' => '<p>See attached</p>',
+            'recipients' => ['ops@example.com'],
+            'scheduledAt' => '2027-06-01T10:00:00+00:00',
+            'attachments' => [
+                ['filename' => 'invoice.pdf', 'contentType' => 'application/pdf', 'content' => base64_encode('pdf-bytes')],
+            ],
+        ]);
+        $this->assertResponseStatus(Response::HTTP_ACCEPTED);
+
+        return $this->jsonResponse()['@id'];
+    }
+
+    private function attachmentPath(string $id): string
+    {
+        self::entityManager()->clear();
+        $notification = self::entityManager()->getRepository(Notification::class)->find(basename($id));
+        $relativePath = $notification->getPayload()['attachments'][0]['path'];
+
+        return self::getContainer()->get(AttachmentStorage::class)->absolutePath($relativePath);
     }
 }

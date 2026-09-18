@@ -97,7 +97,7 @@ final class SendNotificationServiceTest extends IntegrationTestCase
         $user = $this->createUser('alice');
         $request = new NotificationRequest(
             new EmailNotificationPayload('noreply@example.com', 'Invoice', 'body', null, [
-                new EmailAttachment('invoice.pdf', 'application/pdf', 'pdf-bytes'),
+                new EmailAttachment('invoice.pdf', 'application/pdf', 'attachments/unused-in-this-test', strlen('pdf-bytes')),
             ]),
             ['ops@example.com'],
         );
@@ -111,6 +111,7 @@ final class SendNotificationServiceTest extends IntegrationTestCase
                 'contentType' => 'application/pdf',
                 'contentId' => null,
                 'size' => strlen('pdf-bytes'),
+                'path' => 'attachments/unused-in-this-test',
             ]],
             $payload['attachments'],
         );

@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Nofi\ApiResource\NotificationResource;
 use DomainException;
+use Nofi\Notification\NotificationAttachmentCleaner;
 use Nofi\Notification\NotificationLifecycle;
 use Override;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
@@ -17,8 +18,10 @@ use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
  */
 final readonly class DeleteNotificationProcessor implements ProcessorInterface
 {
-    public function __construct(private NotificationLifecycle $lifecycle)
-    {
+    public function __construct(
+        private NotificationLifecycle $lifecycle,
+        private NotificationAttachmentCleaner $attachmentCleaner,
+    ) {
     }
 
     #[Override]
@@ -33,9 +36,14 @@ final readonly class DeleteNotificationProcessor implements ProcessorInterface
         }
 
         try {
-            $this->lifecycle->deleteNotification($data->id);
+            $notification = $this->lifecycle->deleteNotification($data->id);
         } catch (DomainException $exception) {
             throw new ConflictHttpException($exception->getMessage(), $exception);
+        }
+
+        // Never delivered, so nothing will ever read its attachment files again.
+        if ($notification !== null) {
+            $this->attachmentCleaner->cleanUpFor($notification);
         }
 
         return null;

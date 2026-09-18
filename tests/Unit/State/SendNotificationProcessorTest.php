@@ -10,6 +10,7 @@ use Nofi\Notification\SendNotificationService;
 use Nofi\Dto\SendNotificationDto;
 use Nofi\Dto\NotificationRequestMapper;
 use Nofi\Entity\User;
+use Nofi\Notification\Email\AttachmentStorage;
 use Nofi\Notification\NotificationRecorder;
 use Nofi\Notification\State\SendNotificationProcessor;
 use InvalidArgumentException;
@@ -31,7 +32,7 @@ final class SendNotificationProcessorTest extends TestCase
     #[Test]
     public function anUnauthenticatedCallerIsRefused(): void
     {
-        $processor = new SendNotificationProcessor($this->service(), $this->securityFor(null), new NotificationRequestMapper());
+        $processor = new SendNotificationProcessor($this->service(), $this->securityFor(null), $this->mapper());
 
         $this->expectException(AuthenticationCredentialsNotFoundException::class);
         $this->expectExceptionMessage('User is not authenticated.');
@@ -44,7 +45,7 @@ final class SendNotificationProcessorTest extends TestCase
         $processor = new SendNotificationProcessor(
             $this->service(),
             $this->securityFor(new User()->setUsername('alice')),
-            new NotificationRequestMapper(),
+            $this->mapper(),
         );
 
         $this->expectException(InvalidArgumentException::class);
@@ -69,5 +70,10 @@ final class SendNotificationProcessorTest extends TestCase
         $security->method('getUser')->willReturn($user);
 
         return $security;
+    }
+
+    private function mapper(): NotificationRequestMapper
+    {
+        return new NotificationRequestMapper(new AttachmentStorage(sys_get_temp_dir()));
     }
 }

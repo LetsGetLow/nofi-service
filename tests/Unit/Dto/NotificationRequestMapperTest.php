@@ -9,6 +9,7 @@ use LogicException;
 use Nofi\Dto\AttachmentDto;
 use Nofi\Dto\NotificationRequestMapper;
 use Nofi\Dto\SendNotificationDto;
+use Nofi\Notification\Email\AttachmentStorage;
 use Nofi\Notification\Email\EmailNotificationPayload;
 use Nofi\Notification\NotificationChannel;
 use Nofi\Notification\Push\PushNotificationPayload;
@@ -33,7 +34,8 @@ final class NotificationRequestMapperTest extends TestCase
         $dto->data = ['customer' => ['name' => 'Alice']];
         $schedule = $dto->scheduledAt = new DateTimeImmutable('+1 hour');
 
-        $request = new NotificationRequestMapper()->map($dto);
+        $storage = new AttachmentStorage(sys_get_temp_dir());
+        $request = $this->mapper($storage)->map($dto);
         $dto->message = 'Changed body';
         $dto->channel = NotificationChannel::PUSH;
         $dto->recipients[] = 'bob@example.com';
@@ -46,7 +48,10 @@ final class NotificationRequestMapperTest extends TestCase
         self::assertSame('Original body', $request->payload->message);
         self::assertSame(['alice@example.com'], $request->targets);
         self::assertSame(['customer' => ['name' => 'Alice']], $request->payload->data);
-        self::assertSame("\x00\xffpdf", $request->payload->attachments[0]->content);
+        self::assertSame(
+            "\x00\xffpdf",
+            file_get_contents($storage->absolutePath($request->payload->attachments[0]->path)),
+        );
         self::assertSame($schedule, $request->scheduledAt);
     }
 
@@ -60,7 +65,7 @@ final class NotificationRequestMapperTest extends TestCase
         $dto->tokens = [4 => 'device-token-1'];
         $dto->topics = [7 => 'news', 9 => 'updates'];
 
-        $request = new NotificationRequestMapper()->map($dto);
+        $request = $this->mapper()->map($dto);
 
         self::assertInstanceOf(PushNotificationPayload::class, $request->payload);
         self::assertSame(NotificationChannel::PUSH, $request->payload->channel());
@@ -74,6 +79,11 @@ final class NotificationRequestMapperTest extends TestCase
         $this->expectException(LogicException::class);
         $this->expectExceptionMessage('A notification cannot be sent without a channel.');
 
-        new NotificationRequestMapper()->map(new SendNotificationDto());
+        $this->mapper()->map(new SendNotificationDto());
+    }
+
+    private function mapper(?AttachmentStorage $storage = null): NotificationRequestMapper
+    {
+        return new NotificationRequestMapper($storage ?? new AttachmentStorage(sys_get_temp_dir()));
     }
 }

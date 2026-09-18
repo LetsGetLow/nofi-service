@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nofi\Tests\Application;
 
 use Nofi\Entity\Notification;
+use Nofi\Notification\Email\AttachmentStorage;
 use Nofi\Notification\NotificationStatus;
 use Override;
 use PHPUnit\Framework\Attributes\Test;
@@ -132,6 +133,35 @@ final class CancelNotificationTest extends ApiTestCase
 
         $this->assertResponseStatus(Response::HTTP_NOT_FOUND);
         self::assertSame(NotificationStatus::QUEUED, $this->stored()->getStatus());
+    }
+
+    #[Test]
+    public function cancellingRemovesTheAttachmentFile(): void
+    {
+        $this->request('POST', '/api/v1/notifications/send', $this->token, [
+            'channel' => 'email',
+            'sender' => 'noreply@example.com',
+            'subject' => 'Invoice',
+            'message' => '<p>See attached</p>',
+            'recipients' => ['ops@example.com'],
+            'scheduledAt' => '2027-06-01T10:00:00+00:00',
+            'attachments' => [
+                ['filename' => 'invoice.pdf', 'contentType' => 'application/pdf', 'content' => base64_encode('pdf-bytes')],
+            ],
+        ]);
+        $this->assertResponseStatus(Response::HTTP_ACCEPTED);
+        $id = $this->jsonResponse()['@id'];
+        $relativePath = self::entityManager()
+            ->getRepository(Notification::class)
+            ->find(basename($id))
+            ->getPayload()['attachments'][0]['path'];
+        $path = self::getContainer()->get(AttachmentStorage::class)->absolutePath($relativePath);
+        self::assertFileExists($path);
+
+        $this->request('POST', $id . '/cancel', $this->token);
+
+        $this->assertResponseStatus(Response::HTTP_OK);
+        self::assertFileDoesNotExist($path);
     }
 
     #[Test]

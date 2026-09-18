@@ -7,6 +7,7 @@ namespace Nofi\Notification\State;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use DomainException;
+use Nofi\Notification\NotificationAttachmentCleaner;
 use Nofi\Notification\NotificationLifecycle;
 use Nofi\ApiResource\NotificationResource;
 use Override;
@@ -26,8 +27,10 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 final readonly class CancelNotificationProcessor implements ProcessorInterface
 {
-    public function __construct(private NotificationLifecycle $lifecycle)
-    {
+    public function __construct(
+        private NotificationLifecycle $lifecycle,
+        private NotificationAttachmentCleaner $attachmentCleaner,
+    ) {
     }
 
     #[Override]
@@ -53,6 +56,9 @@ final readonly class CancelNotificationProcessor implements ProcessorInterface
         if ($notification === null) {
             throw new NotFoundHttpException("Notification not found.");
         }
+
+        // Never delivered, so nothing will ever read its attachment files again.
+        $this->attachmentCleaner->cleanUpFor($notification);
 
         return NotificationResource::fromEntity($notification);
     }

@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace Nofi\Notification\Email;
 
-use function strlen;
-
 /**
- * An attachment ready to be handed to the mailer: the content is already
- * decoded, so nothing downstream has to know it arrived base64 encoded.
+ * An attachment ready to be handed to the mailer: content lives on disk,
+ * already decoded, so nothing downstream has to know it arrived base64
+ * encoded or read it more than once.
  */
 final readonly class EmailAttachment
 {
@@ -17,7 +16,9 @@ final readonly class EmailAttachment
     public function __construct(
         public string $filename,
         public string $contentType,
-        public string $content,
+        /** Relative to AttachmentStorage's share directory; resolve with absolutePath(). */
+        public string $path,
+        public int $size,
         public ?string $contentId = null,
     ) {
     }
@@ -29,10 +30,5 @@ final readonly class EmailAttachment
     public function isInline(): bool
     {
         return $this->contentId !== null;
-    }
-
-    public function size(): int
-    {
-        return strlen($this->content);
     }
 }

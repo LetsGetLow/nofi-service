@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use InvalidArgumentException;
 use Nofi\Entity\Notification;
+use Nofi\Notification\NotificationAttachmentCleaner;
 use Nofi\Notification\NotificationChannel;
 use Nofi\Notification\NotificationDelivery;
 use Nofi\Notification\NotificationPayload;
@@ -26,6 +27,8 @@ final readonly class EmailNotificationDelivery implements NotificationDelivery
         private MailerInterface $mailer,
         private LoggerInterface $logger,
         private MailTemplateLocator $templates,
+        private NotificationAttachmentCleaner $attachmentCleaner,
+        private AttachmentStorage $attachmentStorage,
     ) {
     }
 
@@ -74,22 +77,16 @@ final readonly class EmailNotificationDelivery implements NotificationDelivery
                     ->text(strip_tags($body));
 
                 foreach ($payload->attachments as $attachment) {
+                    $path = $this->attachmentStorage->absolutePath($attachment->path);
+
                     if ($attachment->isInline()) {
                         // Embedded in the HTML body, referenced as cid:<contentId>.
-                        $email->embed(
-                            $attachment->content,
-                            (string) $attachment->contentId,
-                            $attachment->contentType,
-                        );
+                        $email->embedFromPath($path, (string) $attachment->contentId, $attachment->contentType);
 
                         continue;
                     }
 
-                    $email->attach(
-                        $attachment->content,
-                        $attachment->filename,
-                        $attachment->contentType,
-                    );
+                    $email->attachFromPath($path, $attachment->filename, $attachment->contentType);
                 }
 
                 $this->mailer->send($email);
@@ -113,6 +110,7 @@ final readonly class EmailNotificationDelivery implements NotificationDelivery
         if ($failed > 0) {
             // Thrown so Messenger retries; recipients already sent are skipped
             // on the next attempt because only waiting or failed ones qualify.
+            // Attachment files are left in place: a retry still needs them.
             throw new RuntimeException(sprintf(
                 "Email notification %s failed for %d of %d recipients.",
                 $notification->getId(),
@@ -120,6 +118,9 @@ final readonly class EmailNotificationDelivery implements NotificationDelivery
                 $attempted,
             ));
         }
+
+        // Every recipient succeeded, so nothing will read these files again.
+        $this->attachmentCleaner->cleanUpFor($notification);
     }
 
     /**

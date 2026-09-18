@@ -105,7 +105,7 @@ final class NotificationRecorderTest extends TestCase
             'Invoice',
             'body',
             null,
-            [new EmailAttachment('invoice.pdf', 'application/pdf', 'pdf-bytes', 'inv')],
+            [new EmailAttachment('invoice.pdf', 'application/pdf', 'attachments/fake', 9, 'inv')],
         );
 
         $request = new NotificationRequest($payload, ['ops@example.com']);
@@ -117,9 +117,11 @@ final class NotificationRecorderTest extends TestCase
             'contentType' => 'application/pdf',
             'contentId' => 'inv',
             'size' => 9,
+            'path' => 'attachments/fake',
         ]], $stored);
 
-        // The bytes must not be duplicated into the notification row.
+        // The bytes must not be duplicated into the notification row, only
+        // the on-disk path.
         self::assertStringNotContainsString('pdf-bytes', json_encode($persisted->getPayload()));
     }
 }
