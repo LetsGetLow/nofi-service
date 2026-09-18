@@ -46,7 +46,7 @@ readonly class NotificationLifecycle
         return $this->entityManager->wrapInTransaction(function () use ($id): ?Notification {
             $notification = $this->getLockedNotification($id);
             if ($notification !== null) {
-                $this->assertNotificationIsWithdrawable($notification, 'cancelled');
+                $this->assertNotificationCanBeCancelled($notification);
                 $notification->markCancelled();
             }
 
@@ -59,7 +59,7 @@ readonly class NotificationLifecycle
         $this->entityManager->wrapInTransaction(function () use ($id): void {
             $notification = $this->getLockedNotification($id);
             if ($notification !== null) {
-                $this->assertNotificationIsWithdrawable($notification, 'deleted');
+                $this->assertNotificationCanBeDeleted($notification);
                 $this->entityManager->remove($notification);
             }
         });
@@ -100,14 +100,25 @@ readonly class NotificationLifecycle
             ->getOneOrNullResult();
     }
 
-    private function assertNotificationIsWithdrawable(Notification $notification, string $action): void
+    private function assertNotificationCanBeCancelled(Notification $notification): void
     {
         if (!$notification->getStatus()->isWithdrawable()) {
             throw new DomainException(sprintf(
-                'Notification %s is %s and cannot be %s. Only a send that has not started can be withdrawn.',
+                'Notification %s is %s and cannot be cancelled. Only a send that has not started can be withdrawn.',
                 $notification->getId(),
                 $notification->getStatus()->value,
-                $action,
+            ));
+        }
+    }
+
+    private function assertNotificationCanBeDeleted(Notification $notification): void
+    {
+        if (!$notification->getStatus()->canBeDeleted()) {
+            throw new DomainException(sprintf(
+                'Notification %s is %s and cannot be deleted. Only a send that has not started, '
+                . 'or one that was cancelled, can be removed.',
+                $notification->getId(),
+                $notification->getStatus()->value,
             ));
         }
     }

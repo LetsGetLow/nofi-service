@@ -77,12 +77,10 @@ use Symfony\Component\Uid\Uuid;
             openapi: new OpenApiOperation(
                 summary: "Removes a notification that has not gone out yet",
                 description: "Requires ROLE_ADMIN, and removes the record along with its recipients. "
-                . "To stop a send but keep the record, use POST /notifications/{id}/cancel "
-                . "instead. Only a notification that is still waiting can be removed: one that "
-                . "is already being delivered, or is finished, is kept as the record of what "
-                . "went out and the call is answered with 409 Conflict. That is the same rule "
-                . "cancelling applies — a send a worker has picked up cannot be stopped either "
-                . "way.",
+                . "A notification that is still waiting, or one that was cancelled, can be removed. "
+                . "One that is already being delivered, or has finished sending, is kept as the "
+                . "record of what went out and the call is answered with 409 Conflict — a send a "
+                . "worker has picked up cannot be stopped either way.",
             ),
             security: "is_granted('ROLE_ADMIN')",
             provider: NotificationProvider::class,

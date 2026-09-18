@@ -14,8 +14,9 @@ enum NotificationStatus: string
     case CANCELLED = "cancelled";
 
     /**
-     * Cancelled counts as final: the send is over, and what is over is a
-     * record. That is what stops it from being deleted or edited afterwards.
+     * The send is decided: no further status transition happens
+     * automatically. This does not by itself say whether the record can
+     * still be deleted — see canBeDeleted() for that.
      */
     public function isFinal(): bool
     {
@@ -33,18 +34,38 @@ enum NotificationStatus: string
     }
 
     /**
-     * May a caller still stop this send, by cancelling or deleting it?
+     * May a caller still stop this send by cancelling it?
      *
-     * PROCESSING is deliberately not withdrawable: a worker is already
-     * delivering, so withdrawing would race the send rather than prevent it.
-     * That is the same rule allowedTransitions() encodes by leaving CANCELLED
-     * off PROCESSING — named once here because cancel and delete each used to
-     * ask it their own way, and disagreed. Cancel asked isWaiting() and
-     * refused; delete asked isFinal() and let a send in flight be removed.
+     * PROCESSING is deliberately excluded: a worker is already delivering, so
+     * cancelling would race the send rather than prevent it. That is the same
+     * rule allowedTransitions() encodes by leaving CANCELLED off PROCESSING —
+     * named once here because cancel and delete each used to ask it their own
+     * way, and disagreed. Cancel asked isWaiting() and refused; delete asked
+     * isFinal() and let a send in flight be removed.
+     *
+     * Deletion is deliberately not the same question — see canBeDeleted(),
+     * which also allows CANCELLED. That is a second, narrower divergence from
+     * this method, made on purpose: unlike the PROCESSING bug above, nothing
+     * about PROCESSING changes for either method.
      */
     public function isWithdrawable(): bool
     {
         return $this->isWaiting();
+    }
+
+    /**
+     * May a caller remove this notification's record entirely?
+     *
+     * Unlike isWithdrawable() (used for cancelling), CANCELLED counts here
+     * too: nothing was ever delivered, so there is no delivery outcome to
+     * preserve as a record. SENT and FAILED stay excluded because they
+     * document a real attempt. PROCESSING stays excluded because a worker may
+     * still be delivering — removing the row out from under it would race
+     * the send, exactly as it would for cancelling.
+     */
+    public function canBeDeleted(): bool
+    {
+        return $this->isWaiting() || $this === self::CANCELLED;
     }
 
     public function allowedTransitions(): array

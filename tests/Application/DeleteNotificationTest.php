@@ -53,6 +53,17 @@ final class DeleteNotificationTest extends ApiTestCase
     }
 
     #[Test]
+    public function aCancelledSendCanBeDeleted(): void
+    {
+        $this->markCancelled();
+
+        $this->request('DELETE', $this->id, $this->token);
+
+        $this->assertResponseStatus(Response::HTTP_NO_CONTENT);
+        self::assertNull($this->stored(), 'a cancelled send was never delivered and may be removed');
+    }
+
+    #[Test]
     public function aSendThatAlreadyWentOutCannotBeDeleted(): void
     {
         $notification = $this->stored();
@@ -90,6 +101,13 @@ final class DeleteNotificationTest extends ApiTestCase
     private function markProcessing(): void
     {
         $this->stored()->markProcessing();
+        self::entityManager()->flush();
+        self::entityManager()->clear();
+    }
+
+    private function markCancelled(): void
+    {
+        $this->stored()->markCancelled();
         self::entityManager()->flush();
         self::entityManager()->clear();
     }

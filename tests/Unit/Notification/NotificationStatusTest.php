@@ -47,6 +47,21 @@ class NotificationStatusTest extends TestCase
     }
 
     #[Test]
+    public function canBeDeletedCoversEveryStatusASendCanStillBeRemovedIn(): void
+    {
+        $this->assertTrue(NotificationStatus::CREATED->canBeDeleted());
+        $this->assertTrue(NotificationStatus::QUEUED->canBeDeleted());
+        // The one that matters: a worker is already delivering, so deleting
+        // may not race an active send, same as isWithdrawable().
+        $this->assertFalse(NotificationStatus::PROCESSING->canBeDeleted());
+        $this->assertFalse(NotificationStatus::FAILED->canBeDeleted());
+        $this->assertFalse(NotificationStatus::SENT->canBeDeleted());
+        // Unlike isWithdrawable(): nothing was ever delivered, so there is no
+        // outcome to preserve as a record.
+        $this->assertTrue(NotificationStatus::CANCELLED->canBeDeleted());
+    }
+
+    #[Test]
     public function isResendableDeterminesIfStatusCanBeResent(): void
     {
         $this->assertFalse(NotificationStatus::CREATED->isResendable());
