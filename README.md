@@ -836,6 +836,13 @@ MESSENGER_NUM_WORKERS=2 MESSENGER_MEMORY_LIMIT=512M PHP_WORKER_MEMORY_LIMIT=1G \
   docker compose up -d
 ```
 
+#### Inspecting and retrying failed messages
+
+A failed send is retried automatically up to 5 times with backoff
+(`retry_strategy` in `config/packages/messenger.yaml`); only once those are
+exhausted does the message land in the `failed` transport, where it waits for
+an operator:
+
 ```bash
 ./docker bin/console messenger:stats
 ./docker bin/console messenger:failed:show -vv
