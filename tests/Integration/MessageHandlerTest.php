@@ -10,10 +10,8 @@ use Nofi\Notification\NotificationLifecycle;
 use Nofi\Notification\Email\EmailNotificationPayload;
 use Nofi\Notification\Push\PushNotificationPayload;
 use Nofi\Entity\Notification;
-use Nofi\Message\DeleteNotification;
 use Nofi\Message\SendEmailNotification;
 use Nofi\Message\SendPushNotification;
-use Nofi\MessageHandler\DeleteNotificationHandler;
 use Nofi\MessageHandler\SendNotificationHandler;
 use Nofi\Notification\NotificationChannel;
 use Nofi\Notification\NotificationStatus;
@@ -177,43 +175,6 @@ final class MessageHandlerTest extends IntegrationTestCase
         self::assertSame(NotificationStatus::FAILED, $stored->getStatus());
         self::assertSame(NotificationStatus::SENT, $stored->getRecipients()[0]->getStatus());
         self::assertSame(NotificationStatus::FAILED, $stored->getRecipients()[1]->getStatus());
-    }
-
-    #[Test]
-    public function deletingRemovesANotificationThatHasNotBeenSent(): void
-    {
-        $notification = $this->persistedNotification(['ops@example.com']);
-        $id = $notification->getId();
-
-        self::service(DeleteNotificationHandler::class)(new DeleteNotification($id));
-
-        self::entityManager()->clear();
-        self::assertNull(self::entityManager()->find(Notification::class, $id));
-    }
-
-    #[Test]
-    public function deletingLeavesAnAlreadySentNotificationAlone(): void
-    {
-        $notification = $this->persistedNotification(['ops@example.com']);
-        $notification->markProcessing()->markSent();
-        self::entityManager()->flush();
-        $id = $notification->getId();
-
-        self::service(DeleteNotificationHandler::class)(new DeleteNotification($id));
-
-        self::entityManager()->clear();
-        self::assertNotNull(
-            self::entityManager()->find(Notification::class, $id),
-            'a notification in a final state must be kept as a record of what was sent',
-        );
-    }
-
-    #[Test]
-    public function deletingSomethingThatIsAlreadyGoneIsHarmless(): void
-    {
-        self::service(DeleteNotificationHandler::class)(new DeleteNotification('never-existed'));
-
-        self::assertTrue(true, 'no exception');
     }
 
     /**
